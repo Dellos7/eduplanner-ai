@@ -1,0 +1,5 @@
+{
+  "name": "EduPlanner AI",
+  "description": "Asistente inteligente para generar Propuestas Pedagógicas y Situaciones de Aprendizaje a partir del currículum.",
+  "requestFramePermissions": []
+}

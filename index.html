@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="https://upload.wikimedia.org/wikipedia/commons/4/47/React.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EduPlanner AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      /* Custom styles for Markdown rendering since Tailwind resets everything */
+      .markdown-body table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+        font-size: 0.9em;
+      }
+      .markdown-body th, .markdown-body td {
+        border: 1px solid #e2e8f0;
+        padding: 0.75rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      .markdown-body th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #1e293b;
+      }
+      .markdown-body tr:nth-child(even) {
+        background-color: #fcfcfc;
+      }
+      .markdown-body h1 { font-size: 1.875rem; font-weight: 700; margin-bottom: 1rem; margin-top: 2rem; color: #1e293b; }
+      .markdown-body h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.75rem; margin-top: 1.5rem; color: #334155; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; }
+      .markdown-body h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; margin-top: 1.25rem; color: #475569; }
+      .markdown-body h4 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; margin-top: 1rem; }
+      .markdown-body p { margin-bottom: 1rem; line-height: 1.6; color: #334155; }
+      .markdown-body ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+      .markdown-body ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 1rem; }
+      .markdown-body li { margin-bottom: 0.25rem; }
+      .markdown-body blockquote { border-left: 4px solid #6366f1; padding-left: 1rem; font-style: italic; color: #64748b; background: #f8fafc; padding: 1rem; border-radius: 0 0.5rem 0.5rem 0; }
+      .markdown-body strong { font-weight: 600; color: #0f172a; }
+      .markdown-body hr { margin: 2rem 0; border-top: 1px solid #e2e8f0; }
+      
+      /* Ensure lists in tables are visible */
+      .markdown-body td ul { margin-bottom: 0; padding-left: 1.2rem; list-style-type: disc; }
+      .markdown-body td li { margin-bottom: 0.2rem; }
+      /* Ensure nested lists have indentation */
+      .markdown-body ul ul { list-style-type: circle; margin-top: 0.2rem; }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react-markdown": "https://esm.sh/react-markdown@^10.1.0",
+    "remark-gfm": "https://esm.sh/remark-gfm@^4.0.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
