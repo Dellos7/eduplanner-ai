@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
   <head>
@@ -50,6 +51,30 @@
       .markdown-body td li { margin-bottom: 0.2rem; }
       /* Ensure nested lists have indentation */
       .markdown-body ul ul { list-style-type: circle; margin-top: 0.2rem; }
+
+      /* Print Styles */
+      @media print {
+        @page {
+          margin: 2cm;
+          size: A4;
+        }
+        body {
+          background: white !important;
+          color: black !important;
+        }
+        .markdown-body {
+          padding: 0 !important;
+        }
+        .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+          page-break-after: avoid;
+        }
+        .markdown-body table {
+          page-break-inside: avoid;
+        }
+        nav, header, footer, button, .print-hidden {
+          display: none !important;
+        }
+      }
     </style>
   <script type="importmap">
 {

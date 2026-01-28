@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Download, Edit3, Eye, ArrowLeft, Save, FileText, ChevronDown, ChevronUp, Layers, Type, LayoutTemplate, BookOpen, Bookmark } from 'lucide-react';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Download, Edit3, ArrowLeft, Save, FileText, ChevronDown, ChevronUp, Layers, Type, LayoutTemplate, FileJson, FileType, Printer } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CurriculumAnalysis } from '../types';
+import CurricularReference from './CurricularReference';
 
 interface EditorProps {
   initialContent: string;
@@ -14,11 +16,10 @@ interface EditorProps {
 interface DocSection {
   id: number;
   title: string;
-  content: string; // The markdown content belonging to this section
-  level: number; // h1, h2, h3
+  content: string; 
+  level: number; 
 }
 
-// Structure for a detailed Learning Situation (SA)
 interface SAStructure {
   contextPersonal: string;
   contextEducativo: string;
@@ -28,7 +29,12 @@ interface SAStructure {
   ods: string;
   competencies: string;
   knowledge: string;
-  organization: string; // Keep as string (markdown table) for complexity reasons or simplify if needed
+  // Organización en 5 columnas
+  orgSequencing: string;
+  orgSpaces: string;
+  orgTime: string;
+  orgResources: string;
+  orgInclusion: string;
   instruments: string;
 }
 
@@ -37,9 +43,8 @@ const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, an
   const [mode, setMode] = useState<'edit' | 'preview'>('preview');
   const [sections, setSections] = useState<DocSection[]>([]);
   const [expandedSection, setExpandedSection] = useState<number | null>(null);
-  const [showAnalysis, setShowAnalysis] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
 
-  // Parse markdown into sections when entering edit mode
   useEffect(() => {
     if (mode === 'edit') {
       const parsed = parseMarkdownToSections(content);
@@ -62,7 +67,7 @@ const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, an
       } else if (currentBuffer.length > 0 && currentBuffer.some(l => l.trim() !== '')) {
         result.push({
           id: idCounter++,
-          title: "Introducción / Portada",
+          title: "Portada / Introducción",
           content: currentBuffer.join('\n').trim(),
           level: 0
         });
@@ -106,88 +111,62 @@ const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, an
     setMode('preview');
   };
 
-  const handleDownload = () => {
+  const downloadFile = (data: Blob, filename: string) => {
     const element = document.createElement("a");
-    const file = new Blob([content], {type: 'text/plain'});
-    element.href = URL.createObjectURL(file);
-    element.download = `${docTitle.replace(/\s+/g, '_')}_EduPlanner.md`;
+    element.href = URL.createObjectURL(data);
+    element.download = filename;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
   };
 
+  const handleDownloadMD = () => {
+    const blob = new Blob([content], {type: 'text/markdown'});
+    downloadFile(blob, `${docTitle.replace(/\s+/g, '_')}.md`);
+  };
+
+  const handleDownloadODT = () => {
+    // Generamos un HTML enriquecido que Word/LibreOffice interpretan bien como .odt/.doc
+    const htmlContent = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head><meta charset='utf-8'><title>${docTitle}</title>
+      <style>
+        body { font-family: 'Arial', sans-serif; line-height: 1.5; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+        th, td { border: 1px solid #000; padding: 8px; text-align: left; font-size: 10pt; }
+        th { background-color: #f2f2f2; }
+        h1 { color: #2c3e50; }
+        h2 { border-bottom: 1px solid #ccc; color: #34495e; }
+      </style>
+      </head>
+      <body>
+        ${document.querySelector('.markdown-body')?.innerHTML || ''}
+      </body>
+      </html>
+    `;
+    const blob = new Blob([htmlContent], {type: 'application/vnd.oasis.opendocument.text'});
+    downloadFile(blob, `${docTitle.replace(/\s+/g, '_')}.odt`);
+  };
+
+  const handlePrintPDF = () => {
+    window.print();
+  };
+
   return (
     <div className="space-y-4 animate-fade-in">
       
-      {/* Analysis Summary Accordion */}
-      {analysisData && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6">
-          <button 
-            onClick={() => setShowAnalysis(!showAnalysis)}
-            className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-indigo-600" />
-              <span className="font-semibold text-slate-700">Referencia Curricular Extraída</span>
-              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
-                {analysisData.subject}
-              </span>
-            </div>
-            {showAnalysis ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
-          </button>
-          
-          {showAnalysis && (
-            <div className="p-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-8 bg-white max-h-[300px] overflow-y-auto custom-scrollbar">
-              <div>
-                <h4 className="flex items-center gap-2 font-bold text-slate-800 mb-3">
-                  <Layers className="w-4 h-4 text-emerald-500" />
-                  Competencias Específicas
-                </h4>
-                <ul className="space-y-2">
-                  {analysisData.competencies && analysisData.competencies.length > 0 ? (
-                    analysisData.competencies.map((comp, idx) => (
-                      <li key={idx} className="text-sm text-slate-600 flex items-start gap-2">
-                        <span className="text-emerald-500 mt-1">•</span>
-                        {comp}
-                      </li>
-                    ))
-                  ) : (
-                    <li className="text-sm text-slate-400 italic">No se detectaron competencias específicas.</li>
-                  )}
-                </ul>
-              </div>
-              
-              <div>
-                <h4 className="flex items-center gap-2 font-bold text-slate-800 mb-3">
-                  <Bookmark className="w-4 h-4 text-blue-500" />
-                  Bloques de Saberes
-                </h4>
-                 <ul className="space-y-2">
-                  {analysisData.blocks && analysisData.blocks.length > 0 ? (
-                    analysisData.blocks.map((block, idx) => (
-                      <li key={idx} className="text-sm text-slate-600 flex items-start gap-2">
-                        <span className="text-blue-500 mt-1">•</span>
-                        {block}
-                      </li>
-                    ))
-                  ) : (
-                    <li className="text-sm text-slate-400 italic">No se detectaron bloques de saberes.</li>
-                  )}
-                </ul>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="print:hidden">
+        <CurricularReference analysisData={analysisData} className="mb-6" />
+      </div>
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm sticky top-20 z-10">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm sticky top-20 z-10 print:hidden">
         <div>
           <h2 className="text-lg font-bold text-slate-800">{docTitle}</h2>
           <p className="text-xs text-slate-500">
-            {mode === 'preview' ? 'Vista Previa' : 'Modo Edición Estructurada'}
+            {mode === 'preview' ? 'Vista Previa' : 'Edición Estructurada'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {mode === 'preview' ? (
             <button
               onClick={() => setMode('edit')}
@@ -202,26 +181,47 @@ const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, an
               className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-sm"
             >
               <Save className="w-4 h-4" />
-              Guardar y Ver Vista Previa
+              Guardar y Ver
             </button>
           )}
           
+          <div className="h-6 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
+
           <button
-            onClick={handleDownload}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors"
+            onClick={handleDownloadMD}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors"
+            title="Descargar Markdown"
           >
-            <Download className="w-4 h-4" />
-            Descargar Markdown
+            <FileJson className="w-3.5 h-3.5" />
+            .MD
+          </button>
+
+          <button
+            onClick={handleDownloadODT}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-100 hover:bg-blue-100 rounded-lg transition-colors"
+            title="Descargar ODT (LibreOffice/Word)"
+          >
+            <FileType className="w-3.5 h-3.5" />
+            .ODT
+          </button>
+
+          <button
+            onClick={handlePrintPDF}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 rounded-lg transition-colors"
+            title="Imprimir / Guardar PDF"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            PDF
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[60vh]">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[60vh] print:border-none print:shadow-none">
         {mode === 'edit' ? (
           <div className="p-6 bg-slate-50 space-y-4">
              <div className="bg-blue-50 text-blue-800 text-sm p-3 rounded-lg mb-4 border border-blue-100 flex items-center gap-2">
                 <FileText className="w-4 h-4" />
-                Edita los campos específicos. Pulsa "Guardar" para ver el resultado final.
+                Edita los campos específicos. Las tablas se formatearán automáticamente.
              </div>
              {sections.map((section) => (
                 <SectionEditor 
@@ -235,13 +235,13 @@ const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, an
              ))}
           </div>
         ) : (
-          <div className="markdown-body prose prose-slate max-w-none p-8 h-[60vh] overflow-y-auto custom-scrollbar">
+          <div className="markdown-body prose prose-slate max-w-none p-8 min-h-[60vh] overflow-y-auto custom-scrollbar print:p-0 print:overflow-visible" ref={printRef}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
           </div>
         )}
       </div>
 
-      <div className="flex justify-start">
+      <div className="flex justify-start print:hidden">
         <button
           onClick={onRestart}
           className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors px-2 py-1"
@@ -253,8 +253,6 @@ const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, an
     </div>
   );
 };
-
-// --- Sub-component for individual section editing ---
 
 interface SectionEditorProps {
   section: DocSection;
@@ -269,52 +267,57 @@ const SectionEditor: React.FC<SectionEditorProps> = ({ section, isExpanded, onTo
   const [useRaw, setUseRaw] = useState(!isSA);
   const [saData, setSaData] = useState<SAStructure | null>(null);
 
-  // Parse Markdown to Structured Data when expanding an SA section
   useEffect(() => {
-    if (isSA && !useRaw && isExpanded && !saData) {
+    if (isSA && !useRaw && isExpanded) {
       const parsed = parseSAMarkdown(section.content);
       setSaData(parsed);
     }
-  }, [isExpanded, isSA, useRaw, section.content, saData]);
+  }, [isExpanded, isSA, useRaw, section.content]);
 
   const parseSAMarkdown = (md: string): SAStructure => {
-    // Helper to extract content between markers
     const extract = (markerStart: string, markerEnd: string | null) => {
       const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const startRegex = new RegExp(escapeRegExp(markerStart), 'i');
+      const cleanMarker = markerStart.replace(/\*\*/g, '');
+      const pattern = `(?:\\*\\*${escapeRegExp(cleanMarker)}\\*\\*|${escapeRegExp(cleanMarker)})[:\\s]*`;
+      const startRegex = new RegExp(pattern, 'i');
       const split = md.split(startRegex);
       if (split.length < 2) return "";
-      
       let rest = split[1];
       if (markerEnd) {
-        const endRegex = new RegExp(escapeRegExp(markerEnd), 'i');
+        const cleanEndMarker = markerEnd.replace(/\*\*/g, '');
+        const endPattern = `(?:\\*\\*${escapeRegExp(cleanEndMarker)}\\*\\*|${escapeRegExp(cleanEndMarker)})[:\\s]*`;
+        const endRegex = new RegExp(endPattern, 'i');
         const endSplit = rest.split(endRegex);
         return endSplit[0].trim();
       }
       return rest.trim();
     };
 
-    // Parsing the Context Table loosely (looking for pipes)
-    const contextTable = extract("**Contexto:**", "**Descripción");
-    const contextParts = contextTable.split('|').map(s => s.trim()).filter(s => s && !s.includes('---') && !s.includes('Personal'));
-    // Attempt to grab the second row of the table (values)
-    // Table structure expected: | P | E | S | P | \n |---|---|... \n | Val1 | Val2 | ... |
-    const contextPersonal = contextParts.length >= 4 ? contextParts[contextParts.length - 4] : "";
-    const contextEducativo = contextParts.length >= 4 ? contextParts[contextParts.length - 3] : "";
-    const contextSocial = contextParts.length >= 4 ? contextParts[contextParts.length - 2] : "";
-    const contextProfesional = contextParts.length >= 4 ? contextParts[contextParts.length - 1] : "";
+    // Contexto (4 cols)
+    const contextTable = extract("Contexto:", "Descripción");
+    const ctxRows = contextTable.split('\n').filter(l => l.includes('|') && !l.includes('---'));
+    let ctxParts = ctxRows.length > 1 ? ctxRows[1].split('|').map(s => s.trim()).filter(s => s !== "") : [];
+
+    // Organización (5 cols)
+    const orgTable = extract("Organización:", "Instrumentos");
+    const orgRows = orgTable.split('\n').filter(l => l.includes('|') && !l.includes('---') && !/sequenciaci|activitats/i.test(l));
+    let orgParts = orgRows.length > 0 ? orgRows[0].split('|').map(s => s.trim()).filter(s => s !== "") : [];
 
     return {
-      contextPersonal,
-      contextEducativo,
-      contextSocial,
-      contextProfesional,
-      justification: extract("**Descripción / Justificación:**", "**Relación con"),
-      ods: extract("**Relación con los retos del s.XXI y los ODS:**", "**Competencias Específicas"),
-      competencies: extract("**Competencias Específicas y Criterios de Evaluación vinculados:**", "**Saberes Básicos:**"),
-      knowledge: extract("**Saberes Básicos:**", "**Organización:**"),
-      organization: extract("**Organización:**", "**Instrumentos de recogida"),
-      instruments: extract("**Instrumentos de recogida de información:**", null)
+      contextPersonal: ctxParts[0] || "",
+      contextEducativo: ctxParts[1] || "",
+      contextSocial: ctxParts[2] || "",
+      contextProfesional: ctxParts[3] || "",
+      justification: extract("Descripción / Justificación:", "Relación con"),
+      ods: extract("Relación con los retos del s.XXI y los ODS:", "Competencias Específicas"),
+      competencies: extract("Competencias Específicas y Criterios de Evaluación vinculados:", "Saberes Básicos:"),
+      knowledge: extract("Saberes Básicos:", "Organización:"),
+      orgSequencing: orgParts[0] || "",
+      orgSpaces: orgParts[1] || "",
+      orgTime: orgParts[2] || "",
+      orgResources: orgParts[3] || "",
+      orgInclusion: orgParts[4] || "",
+      instruments: extract("Instrumentos de recogida de información:", null)
     };
   };
 
@@ -323,7 +326,6 @@ const SectionEditor: React.FC<SectionEditorProps> = ({ section, isExpanded, onTo
     const newData = { ...saData, [field]: value };
     setSaData(newData);
     
-    // Reconstruct Markdown immediately
     const newMd = `**Contexto:**
 | Personal | Educativo | Social | Profesional |
 | :--- | :--- | :--- | :--- |
@@ -342,7 +344,9 @@ ${newData.competencies}
 ${newData.knowledge}
 
 **Organización:**
-${newData.organization}
+| Sequenciación d'activitats | Organització dels espais | Distribució del temps | Recursos i materials | Mesures de respuesta educativa per a la inclusió |
+| :--- | :--- | :--- | :--- | :--- |
+| ${newData.orgSequencing} | ${newData.orgSpaces} | ${newData.orgTime} | ${newData.orgResources} | ${newData.orgInclusion} |
 
 **Instrumentos de recogida de información:**
 ${newData.instruments}`;
@@ -389,91 +393,102 @@ ${newData.instruments}`;
         <div className="p-4 bg-white">
           {isSA && !useRaw && saData ? (
             <div className="space-y-6">
-              {/* Context Fields */}
+              {/* Contexto */}
               <div>
                 <label className="flex items-center gap-2 text-sm font-bold text-slate-700 mb-2">
                   <LayoutTemplate className="w-4 h-4 text-indigo-500" />
                   Contexto
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {['Personal', 'Educativo', 'Social', 'Profesional'].map(c => (
+                    <div key={c} className="space-y-1">
+                      <span className="text-[10px] text-slate-500 uppercase font-bold">{c}</span>
+                      <input 
+                        className="w-full p-2 border border-slate-200 rounded text-sm" 
+                        value={(saData as any)[`context${c}`]} 
+                        onChange={(e) => handleSAChange(`context${c}` as any, e.target.value)} 
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Justificación y ODS */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                    <Type className="w-4 h-4 text-indigo-500" />
+                    Descripción / Justificación
+                  </label>
+                  <textarea 
+                    className="w-full min-h-[100px] p-3 border border-slate-200 rounded-lg text-sm"
+                    value={saData.justification}
+                    onChange={(e) => handleSAChange('justification', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-emerald-500" />
+                    Retos s.XXI y ODS
+                  </label>
+                  <textarea 
+                    className="w-full min-h-[100px] p-3 border border-slate-200 rounded-lg text-sm"
+                    value={saData.ods}
+                    onChange={(e) => handleSAChange('ods', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Competencias y Saberes */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-2 block">Competencias y Criterios</label>
+                  <textarea 
+                    className="w-full min-h-[120px] p-3 border border-slate-200 rounded-lg text-xs font-mono bg-slate-50"
+                    value={saData.competencies}
+                    onChange={(e) => handleSAChange('competencies', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-2 block">Saberes Básicos</label>
+                  <textarea 
+                    className="w-full min-h-[120px] p-3 border border-slate-200 rounded-lg text-xs font-mono bg-slate-50"
+                    value={saData.knowledge}
+                    onChange={(e) => handleSAChange('knowledge', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Organización (Tabla de 5 columnas) */}
+              <div className="bg-indigo-50/30 p-4 rounded-xl border border-indigo-100">
+                <label className="flex items-center gap-2 text-sm font-bold text-indigo-800 mb-4">
+                  <LayoutTemplate className="w-4 h-4" />
+                  Organización (Tabla Multicolumna)
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                   <div className="space-y-1">
-                    <span className="text-xs text-slate-500 uppercase font-semibold">Personal</span>
-                    <input className="w-full p-2 border border-slate-200 rounded text-sm" value={saData.contextPersonal} onChange={(e) => handleSAChange('contextPersonal', e.target.value)} />
+                    <span className="text-[10px] text-indigo-600 uppercase font-bold">Sequenciación d'activitats</span>
+                    <textarea className="w-full p-2 border border-indigo-200 rounded text-xs min-h-[100px]" value={saData.orgSequencing} onChange={(e) => handleSAChange('orgSequencing', e.target.value)} />
                   </div>
                   <div className="space-y-1">
-                    <span className="text-xs text-slate-500 uppercase font-semibold">Educativo</span>
-                    <input className="w-full p-2 border border-slate-200 rounded text-sm" value={saData.contextEducativo} onChange={(e) => handleSAChange('contextEducativo', e.target.value)} />
+                    <span className="text-[10px] text-indigo-600 uppercase font-bold">Organització espais</span>
+                    <textarea className="w-full p-2 border border-indigo-200 rounded text-xs min-h-[100px]" value={saData.orgSpaces} onChange={(e) => handleSAChange('orgSpaces', e.target.value)} />
                   </div>
                   <div className="space-y-1">
-                    <span className="text-xs text-slate-500 uppercase font-semibold">Social</span>
-                    <input className="w-full p-2 border border-slate-200 rounded text-sm" value={saData.contextSocial} onChange={(e) => handleSAChange('contextSocial', e.target.value)} />
+                    <span className="text-[10px] text-indigo-600 uppercase font-bold">Distribució temps</span>
+                    <textarea className="w-full p-2 border border-indigo-200 rounded text-xs min-h-[100px]" value={saData.orgTime} onChange={(e) => handleSAChange('orgTime', e.target.value)} />
                   </div>
                   <div className="space-y-1">
-                    <span className="text-xs text-slate-500 uppercase font-semibold">Profesional</span>
-                    <input className="w-full p-2 border border-slate-200 rounded text-sm" value={saData.contextProfesional} onChange={(e) => handleSAChange('contextProfesional', e.target.value)} />
+                    <span className="text-[10px] text-indigo-600 uppercase font-bold">Recursos i materials</span>
+                    <textarea className="w-full p-2 border border-indigo-200 rounded text-xs min-h-[100px]" value={saData.orgResources} onChange={(e) => handleSAChange('orgResources', e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-indigo-600 uppercase font-bold">Mesures inclusió</span>
+                    <textarea className="w-full p-2 border border-indigo-200 rounded text-xs min-h-[100px]" value={saData.orgInclusion} onChange={(e) => handleSAChange('orgInclusion', e.target.value)} />
                   </div>
                 </div>
               </div>
 
-              {/* Description */}
-              <div>
-                 <label className="flex items-center gap-2 text-sm font-bold text-slate-700 mb-2">
-                   <Type className="w-4 h-4 text-indigo-500" />
-                   Descripción / Justificación
-                 </label>
-                 <textarea 
-                   className="w-full min-h-[100px] p-3 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
-                   value={saData.justification}
-                   onChange={(e) => handleSAChange('justification', e.target.value)}
-                 />
-              </div>
-
-              {/* ODS */}
-              <div>
-                 <label className="flex items-center gap-2 text-sm font-bold text-slate-700 mb-2">
-                   <Layers className="w-4 h-4 text-emerald-500" />
-                   Retos s.XXI y ODS
-                 </label>
-                 <textarea 
-                   className="w-full min-h-[80px] p-3 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
-                   value={saData.ods}
-                   onChange={(e) => handleSAChange('ods', e.target.value)}
-                 />
-              </div>
-
-              {/* Competencies */}
-              <div>
-                 <label className="text-sm font-bold text-slate-700 mb-2 block">Competencias Específicas y Criterios</label>
-                 <textarea 
-                   className="w-full min-h-[120px] p-3 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50"
-                   value={saData.competencies}
-                   onChange={(e) => handleSAChange('competencies', e.target.value)}
-                   placeholder="Lista las competencias..."
-                 />
-              </div>
-
-              {/* Knowledge */}
-              <div>
-                 <label className="text-sm font-bold text-slate-700 mb-2 block">Saberes Básicos</label>
-                 <textarea 
-                   className="w-full min-h-[100px] p-3 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50"
-                   value={saData.knowledge}
-                   onChange={(e) => handleSAChange('knowledge', e.target.value)}
-                 />
-              </div>
-
-               {/* Organization (Table raw edit) */}
-               <div>
-                 <label className="text-sm font-bold text-slate-700 mb-2 block">Organización (Secuenciación, espacios, recursos)</label>
-                 <textarea 
-                   className="w-full min-h-[100px] p-3 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50"
-                   value={saData.organization}
-                   onChange={(e) => handleSAChange('organization', e.target.value)}
-                   placeholder="Mantén el formato de tabla markdown..."
-                 />
-              </div>
-
-               {/* Instruments */}
                <div>
                  <label className="text-sm font-bold text-slate-700 mb-2 block">Instrumentos de Evaluación</label>
                  <textarea 
@@ -489,7 +504,7 @@ ${newData.instruments}`;
               value={section.content}
               onChange={(e) => onChange(e.target.value)}
               className="w-full min-h-[300px] p-3 border border-slate-300 rounded-md font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              placeholder="Escribe aquí el contenido de esta sección..."
+              placeholder="Contenido en Markdown..."
             />
           )}
         </div>

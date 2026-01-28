@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Layout from './components/Layout';
 import FileUpload from './components/FileUpload';
@@ -6,7 +7,7 @@ import DocTypeSelector from './components/DocTypeSelector';
 import Editor from './components/Editor';
 import { AppStep, DocType, TeacherContext, CurriculumAnalysis } from './types';
 import { generateEducationalDocument, analyzePdfStructure } from './services/geminiService';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle, FileSearch } from 'lucide-react';
 
 const initialContext: TeacherContext = {
   subject: '',
@@ -16,7 +17,7 @@ const initialContext: TeacherContext = {
   language: 'Castellano',
   selectedNeeds: [],
   otherNeeds: '',
-  methodologyPreference: ['Aprendizaje Basado en Proyectos (ABP)'], // Default as array
+  methodologyPreference: ['Aprendizaje Basado en Proyectos (ABP)'],
   generateFullCourse: false,
   numberOfSAs: 2,
 };
@@ -30,32 +31,34 @@ export default function App() {
   const [resultContent, setResultContent] = useState<string>('');
   const [currentDocType, setCurrentDocType] = useState<DocType | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const performAnalysis = async (base64: string) => {
+    setIsAnalyzing(true);
+    setError(null);
+    try {
+      const analysis = await analyzePdfStructure(base64);
+      setAnalysisData(analysis);
+      
+      setContext(prev => ({
+        ...prev,
+        subject: analysis.subject || prev.subject,
+        gradeLevel: analysis.grade || prev.gradeLevel
+      }));
+      // Aseguramos que estamos en el paso de contexto tras el análisis
+      setStep(AppStep.CONTEXT);
+    } catch (err: any) {
+      setError("Error al analizar el PDF. Por favor, verifica tu clave de API.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const handleFileSelect = async (base64: string, name: string) => {
     if (base64) {
       setPdfBase64(base64);
       setPdfName(name);
-      setIsAnalyzing(true);
-      
-      try {
-        // Analyze PDF to get subject, grade, competencies and blocks
-        const analysis = await analyzePdfStructure(base64);
-        setAnalysisData(analysis);
-        
-        setContext(prev => ({
-          ...prev,
-          subject: analysis.subject || prev.subject,
-          gradeLevel: analysis.grade || prev.gradeLevel
-        }));
-      } catch (error) {
-        console.error("Analysis failed", error);
-      } finally {
-        setIsAnalyzing(false);
-        setStep(AppStep.CONTEXT);
-      }
-    } else {
-      setPdfBase64('');
-      setPdfName('');
+      await performAnalysis(base64);
     }
   };
 
@@ -67,130 +70,110 @@ export default function App() {
   const handleDocTypeSelect = async (type: DocType) => {
     setCurrentDocType(type);
     setStep(AppStep.GENERATING);
+    setError(null);
 
     try {
       const content = await generateEducationalDocument(pdfBase64, context, type);
       setResultContent(content);
       setStep(AppStep.EDITOR);
-    } catch (error) {
-      alert("Hubo un error generando el documento. Por favor intenta de nuevo.");
+    } catch (err: any) {
+      setError(err.message || "Error al generar el documento.");
       setStep(AppStep.SELECT_TYPE);
     }
   };
 
   const handleRestart = () => {
+    setStep(AppStep.UPLOAD);
+    setPdfBase64('');
     setResultContent('');
-    setStep(AppStep.SELECT_TYPE);
+    setAnalysisData(null);
+    setError(null);
   };
 
-  // Navigation Logic
-  const canGoToStep = (targetStep: AppStep): boolean => {
-    if (targetStep === AppStep.UPLOAD) return true;
-    if (targetStep === AppStep.CONTEXT) return !!pdfBase64;
-    if (targetStep === AppStep.SELECT_TYPE) return !!pdfBase64 && !!context.subject; // Basic check
-    if (targetStep === AppStep.EDITOR) return !!resultContent;
-    return false;
-  };
-
-  const handleNavClick = (targetStep: AppStep) => {
-    if (canGoToStep(targetStep)) {
-      setStep(targetStep);
-    }
-  };
-
-  const getDocTitle = () => {
-    if (!currentDocType) return 'Documento';
-    return currentDocType === DocType.PROPUESTA 
-      ? `Propuesta Pedagógica - ${context.subject}`
-      : `Programación de Aula (SAs) - ${context.subject}`;
-  };
+  // Pantalla de carga para análisis de PDF (compartida entre subida y reintento)
+  const AnalysisLoadingView = (
+    <div className="py-20 flex flex-col items-center text-center bg-white rounded-2xl border border-slate-200 shadow-sm animate-fade-in">
+      <div className="relative mb-6">
+        <div className="absolute inset-0 bg-indigo-100 rounded-full animate-ping opacity-25"></div>
+        <div className="relative bg-indigo-50 p-6 rounded-full">
+          <FileSearch className="w-12 h-12 text-indigo-600" />
+        </div>
+      </div>
+      <h3 className="text-xl font-bold text-slate-800">Analizando currículum...</h3>
+      <p className="text-slate-500 max-w-sm mx-auto mt-2 leading-relaxed">
+        Estamos extrayendo competencias y saberes del PDF para automatizar tu planificación.
+      </p>
+      <div className="mt-8 flex items-center gap-2 text-indigo-600 font-medium text-sm">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Procesando con Gemini AI
+      </div>
+    </div>
+  );
 
   return (
     <Layout>
       <div className="max-w-4xl mx-auto">
-        {/* Progress Indicator - Now Interactive */}
-        <div className="mb-8 flex items-center justify-center gap-2 sm:gap-4 text-sm font-medium text-slate-400 select-none">
-          <button 
-            onClick={() => handleNavClick(AppStep.UPLOAD)}
-            className={`transition-colors ${step === AppStep.UPLOAD || step > AppStep.UPLOAD ? 'text-indigo-600 hover:text-indigo-800' : 'cursor-not-allowed'}`}
-          >
-            1. Subir PDF
-          </button>
-          <span className="w-4 h-[1px] bg-slate-300"></span>
-          <button 
-            onClick={() => handleNavClick(AppStep.CONTEXT)}
-            className={`transition-colors ${step === AppStep.CONTEXT || step > AppStep.CONTEXT ? 'text-indigo-600 hover:text-indigo-800' : 'cursor-not-allowed'}`}
-          >
-            2. Contexto
-          </button>
-          <span className="w-4 h-[1px] bg-slate-300"></span>
-          <button 
-             onClick={() => handleNavClick(AppStep.SELECT_TYPE)}
-             className={`transition-colors ${step === AppStep.SELECT_TYPE || step > AppStep.SELECT_TYPE ? 'text-indigo-600 hover:text-indigo-800' : 'cursor-not-allowed'}`}
-          >
-            3. Elegir
-          </button>
-          <span className="w-4 h-[1px] bg-slate-300"></span>
-          <button 
-            onClick={() => handleNavClick(AppStep.EDITOR)}
-            className={`transition-colors ${step === AppStep.EDITOR ? 'text-indigo-600 hover:text-indigo-800' : 'cursor-not-allowed'}`}
-          >
-            4. Resultado
-          </button>
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 p-4 rounded-xl flex items-center gap-3 text-red-700 animate-shake">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <p className="text-sm font-medium">{error}</p>
+          </div>
+        )}
+
+        <div className="mb-8 flex items-center justify-center gap-4 text-sm font-bold">
+          <div className={`flex flex-col items-center gap-1 ${step === AppStep.UPLOAD ? 'text-indigo-600' : 'text-slate-300'}`}>
+            <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.UPLOAD ? 'border-indigo-600' : 'border-slate-200'}`}>1</span>
+            <span className="hidden sm:inline">Subir</span>
+          </div>
+          <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
+          <div className={`flex flex-col items-center gap-1 ${step === AppStep.CONTEXT ? 'text-indigo-600' : 'text-slate-300'}`}>
+            <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.CONTEXT ? 'border-indigo-600' : 'border-slate-200'}`}>2</span>
+            <span className="hidden sm:inline">Contexto</span>
+          </div>
+          <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
+          <div className={`flex flex-col items-center gap-1 ${step === AppStep.SELECT_TYPE ? 'text-indigo-600' : 'text-slate-300'}`}>
+            <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.SELECT_TYPE ? 'border-indigo-600' : 'border-slate-200'}`}>3</span>
+            <span className="hidden sm:inline">Tipo</span>
+          </div>
+          <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
+          <div className={`flex flex-col items-center gap-1 ${step === AppStep.EDITOR ? 'text-indigo-600' : 'text-slate-300'}`}>
+            <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.EDITOR ? 'border-indigo-600' : 'border-slate-200'}`}>4</span>
+            <span className="hidden sm:inline">Resultado</span>
+          </div>
         </div>
 
-        {step === AppStep.UPLOAD && (
-          <div className="space-y-6 animate-fade-in relative">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold text-slate-800">Sube tu Currículum Oficial</h2>
-              <p className="text-slate-500 mt-2">Analizaremos el PDF para autocompletar la asignatura y asegurar normativa.</p>
-            </div>
-            {isAnalyzing ? (
-              <div className="bg-white border border-indigo-100 rounded-xl p-10 flex flex-col items-center justify-center shadow-sm">
-                 <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
-                 <p className="text-lg font-medium text-slate-700">Analizando currículum...</p>
-                 <p className="text-sm text-slate-500">Detectando competencias y saberes básicos</p>
+        {isAnalyzing ? (
+          AnalysisLoadingView
+        ) : (
+          <>
+            {step === AppStep.UPLOAD && <FileUpload onFileSelect={handleFileSelect} />}
+            {step === AppStep.CONTEXT && (
+              <ContextForm 
+                initialData={context} 
+                analysisData={analysisData} 
+                onReAnalyze={() => performAnalysis(pdfBase64)} 
+                onSubmit={handleContextSubmit} 
+              />
+            )}
+            {step === AppStep.SELECT_TYPE && <DocTypeSelector onSelect={handleDocTypeSelect} />}
+            {step === AppStep.GENERATING && (
+              <div className="py-20 flex flex-col items-center text-center bg-white rounded-2xl border border-slate-200 shadow-sm animate-fade-in">
+                <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+                <h3 className="text-xl font-bold">Generando contenido pedagógico...</h3>
+                <p className="text-slate-500 max-w-sm mx-auto mt-2 leading-relaxed">
+                  Redactando {currentDocType === DocType.PROPUESTA ? 'tu propuesta de departamento' : 'tus situaciones de aprendizaje'} con rigor curricular.
+                </p>
               </div>
-            ) : (
-              <FileUpload onFileSelect={handleFileSelect} />
             )}
-          </div>
-        )}
-
-        {step === AppStep.CONTEXT && (
-          <div className="animate-fade-in">
-            <ContextForm initialData={context} onSubmit={handleContextSubmit} />
-          </div>
-        )}
-
-        {step === AppStep.SELECT_TYPE && (
-          <DocTypeSelector onSelect={handleDocTypeSelect} />
-        )}
-
-        {step === AppStep.GENERATING && (
-          <div className="flex flex-col items-center justify-center py-20 animate-fade-in text-center">
-            <div className="bg-white p-4 rounded-full shadow-md mb-6">
-               <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
-            </div>
-            <h3 className="text-2xl font-bold text-slate-800">Generando documento...</h3>
-            <p className="text-slate-500 mt-2 max-w-md">
-              La IA está diseñando {currentDocType === DocType.PROPUESTA ? 'la propuesta pedagógica' : 'la programación de situaciones de aprendizaje'} para {context.subject}.
-            </p>
-            {context.generateFullCourse && currentDocType === DocType.SITUACION && (
-               <p className="text-indigo-600 font-medium mt-4 bg-indigo-50 px-4 py-2 rounded-full text-sm">
-                 Generando curso completo (esto puede tardar un poco más)
-               </p>
+            {step === AppStep.EDITOR && (
+              <Editor 
+                initialContent={resultContent} 
+                docTitle={currentDocType === DocType.PROPUESTA ? 'Propuesta Pedagógica' : 'Situaciones de Aprendizaje'} 
+                onRestart={handleRestart} 
+                analysisData={analysisData} 
+              />
             )}
-          </div>
-        )}
-
-        {step === AppStep.EDITOR && (
-          <Editor 
-            initialContent={resultContent} 
-            docTitle={getDocTitle()} 
-            onRestart={handleRestart}
-            analysisData={analysisData}
-          />
+          </>
         )}
       </div>
     </Layout>
