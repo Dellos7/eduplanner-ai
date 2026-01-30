@@ -13,14 +13,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="bg-indigo-600 p-2 rounded-lg">
-              <BookOpen className="w-6 h-6 text-white" />
+        <div className="max-w-[98%] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="bg-indigo-600 p-2 rounded-lg">
+                <BookOpen className="w-6 h-6 text-white" />
+              </div>
+              <h1 className="text-xl font-bold text-slate-800 tracking-tight whitespace-nowrap">
+                EduPlanner <span className="text-indigo-600">AI</span>
+              </h1>
             </div>
-            <h1 className="text-xl font-bold text-slate-800 tracking-tight">
-              EduPlanner <span className="text-indigo-600">AI</span>
-            </h1>
+            
+            <div className="hidden lg:block h-6 w-[1px] bg-slate-200"></div>
+            
+            <p className="hidden md:block text-xs text-slate-500 font-medium leading-tight max-w-[300px]">
+              Diseño inteligente de propuestas pedagógicas y situaciones de aprendizaje basadas en el currículum oficial.
+            </p>
           </div>
           
           <div className="flex items-center gap-4">
@@ -41,7 +49,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
-      <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 w-full max-w-[98%] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
 

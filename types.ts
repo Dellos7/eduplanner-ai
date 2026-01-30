@@ -1,3 +1,4 @@
+
 export enum AppStep {
   UPLOAD = 'UPLOAD',
   CONTEXT = 'CONTEXT',
@@ -29,12 +30,13 @@ export interface TeacherContext {
   selectedNeeds: string[]; 
   otherNeeds: string;
   
-  // Methodologies - Changed from string to string array
+  // Methodologies
   methodologyPreference: string[];
   
   // SA Specifics
   generateFullCourse: boolean;
   numberOfSAs: number; 
+  saIdeas: string[]; // Ideas sugeridas para cada SdA
 }
 
 export interface GeneratedDocument {
