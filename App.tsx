@@ -222,6 +222,7 @@ export default function App() {
                   onRestart={handleRestart} 
                   analysisData={analysisData} 
                   onRefine={handleRefine}
+                  language={context.language}
                 />
               )}
             </>

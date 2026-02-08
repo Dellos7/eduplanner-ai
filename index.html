@@ -8,11 +8,13 @@
     <title>EduPlanner AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Librería para exportación directa a PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
       body {
         font-family: 'Inter', sans-serif;
       }
-      /* Estilos para renderizado Markdown */
+      /* Estilos para renderizado Markdown en pantalla */
       .markdown-body {
         color: #334155;
       }
@@ -21,7 +23,7 @@
         border-collapse: collapse;
         margin: 1.5rem 0;
         font-size: 0.85em;
-        table-layout: fixed;
+        table-layout: auto;
       }
       .markdown-body th, .markdown-body td {
         border: 1px solid #cbd5e1;
@@ -37,90 +39,56 @@
         text-transform: uppercase;
         font-size: 0.7rem;
       }
-      .markdown-body h1 { font-size: 2.25rem; font-weight: 800; margin: 2rem 0 1.5rem; color: #0f172a; text-align: center; border-bottom: 3px solid #6366f1; padding-bottom: 1rem; }
-      .markdown-body h2 { font-size: 1.75rem; font-weight: 700; margin: 2.5rem 0 1rem; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; page-break-before: always; }
+      .markdown-body h1 { font-size: 2.25rem; font-weight: 800; margin: 0 0 1.5rem; color: #0f172a; text-align: center; border-bottom: 3px solid #6366f1; padding-bottom: 1rem; }
+      .markdown-body h2 { font-size: 1.75rem; font-weight: 700; margin: 2.5rem 0 1rem; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; }
       .markdown-body h3 { font-size: 1.3rem; font-weight: 700; margin: 1.8rem 0 0.8rem; color: #334155; }
       .markdown-body p { margin-bottom: 1rem; line-height: 1.7; color: #334155; text-align: justify; }
-      .markdown-body strong { color: #0f172a; font-weight: 700; }
-      .markdown-body ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
-      .markdown-body li { margin-bottom: 0.5rem; }
-      
-      /* Estilos de Impresión (PDF) */
-      @media print {
-        @page {
-          margin: 1.5cm 2cm;
-          size: A4 portrait;
-        }
-        body {
-          background: white !important;
-          font-size: 11pt;
-          -webkit-print-color-adjust: exact;
-        }
-        .markdown-body {
-          padding: 0 !important;
-          color: black !important;
-          max-width: 100% !important;
-        }
-        .markdown-body table {
-          border: 1px solid #000 !important;
-          page-break-inside: auto;
-          margin: 1rem 0;
-        }
-        .markdown-body tr {
-          page-break-inside: avoid;
-          page-break-after: auto;
-        }
-        .markdown-body th, .markdown-body td {
-          border: 1px solid #000 !important;
-          color: black !important;
-          padding: 8px !important;
-        }
-        .markdown-body th {
-          background-color: #eee !important;
-        }
-        .markdown-body h1 {
-          font-size: 24pt !important;
-          border-bottom: 2pt solid #000 !important;
-        }
-        .markdown-body h2 {
-          font-size: 18pt !important;
-          border-bottom: 1pt solid #000 !important;
-          page-break-before: always;
-        }
-        .markdown-body h2:first-of-type {
-          page-break-before: auto;
-        }
-        nav, header, footer, button, .print:hidden, [role="button"], .print\:hidden, .sticky {
-          display: none !important;
-        }
-        .markdown-body a {
-          text-decoration: none;
-          color: black;
-        }
+
+      /* ESTILOS ESPECÍFICOS PARA PDF */
+      /* Cuando se añade la clase pdf-export-mode al contenedor markdown-body */
+      .pdf-export-mode {
+        padding: 0 !important;
+        margin: 0 !important;
+        background: white !important;
+        width: 100% !important;
       }
 
-      /* Scrollbar para editor */
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 8px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: #f1f5f9;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 4px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
+      .pdf-export-mode h2 {
+        page-break-before: always !important;
+        margin-top: 0 !important;
+        padding-top: 10mm !important;
       }
 
-      @keyframes fade-in-down {
-        from { opacity: 0; transform: translateY(-10px); }
-        to { opacity: 1; transform: translateY(0); }
+      /* Evitar que el primer h1 o h2 tenga un salto de página */
+      .pdf-export-mode h1:first-child,
+      .pdf-export-mode h2:first-child,
+      .pdf-export-mode > *:first-child {
+        page-break-before: avoid !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
       }
-      .animate-fade-in-down {
-        animation: fade-in-down 0.3s ease-out;
+
+      .pdf-export-mode table {
+        page-break-inside: avoid !important;
+        border: 1px solid #94a3b8 !important;
+        margin-bottom: 15pt !important;
       }
+
+      .pdf-export-mode tr {
+        page-break-inside: avoid !important;
+      }
+
+      .pdf-export-mode h1, .pdf-export-mode h2, .pdf-export-mode h3 {
+        page-break-after: avoid !important;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+      @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+      .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
     </style>
   <script type="importmap">
 {

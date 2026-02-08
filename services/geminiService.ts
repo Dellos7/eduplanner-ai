@@ -21,6 +21,15 @@ Usa un lenguaje técnico, inclusivo y profesional.
 IMPORTANTE: Debes escribir el documento ÚNICA Y EXCLUSIVAMENTE en el idioma solicitado por el usuario.
 `;
 
+const getOrganizationHeaders = (language: string) => {
+  if (language.includes('Catalán') || language.includes('Valenciano')) {
+    return "| Seqüenciació d'activitats | Organització dels espais | Distribució del temps | Recursos i materials | Mesures de resposta educativa per a la inclusió |";
+  } else if (language.includes('Inglés')) {
+    return "| Sequencing of activities | Organization of spaces | Time distribution | Resources and materials | Educational response measures for inclusion |";
+  }
+  return "| Secuenciación de actividades | Organización de espacios | Distribución del tiempo | Recursos y materiales | Medidas de respuesta educativa para la inclusión |";
+};
+
 export const analyzePdfStructure = async (pdfBase64: string): Promise<CurriculumAnalysis> => {
   const ai = getAiClient();
   try {
@@ -106,6 +115,8 @@ export const generateEducationalDocument = async (
       });
     }
 
+    const orgHeader = getOrganizationHeaders(context.language);
+
     prompt = `
       ${langInstruction}
       Genera ${saCountText} **SITUACIONES DE APRENDIZAJE** detalladas para ${context.subject} (${context.gradeLevel}).
@@ -134,7 +145,7 @@ export const generateEducationalDocument = async (
 
       **Organización:**
       Genera una tabla con al menos 3 filas (Actividad 1, Actividad 2, Actividad 3).
-      | Sequenciació d'activitats | Organització dels espais | Distribució del tempi | Recursos i materials | Mesures de respuesta educativa per a la inclusió |
+      ${orgHeader}
       | :--- | :--- | :--- | :--- | :--- |
       | **Actividad 1:** [Nombre] | [Espacio] | [Tiempo] | [Recursos] | [Medidas] |
       | **Actividad 2:** [Nombre] | [Espacio] | [Tiempo] | [Recursos] | [Medidas] |

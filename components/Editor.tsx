@@ -12,6 +12,7 @@ interface EditorProps {
   onRestart: () => void;
   analysisData: CurriculumAnalysis | null;
   onRefine: (feedback: string) => Promise<string>;
+  language?: string;
 }
 
 interface DocSection {
@@ -42,13 +43,14 @@ interface SAStructure {
   instruments: string;
 }
 
-const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, analysisData, onRefine }) => {
+const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, analysisData, onRefine, language = 'Castellano' }) => {
   const [content, setContent] = useState(initialContent);
   const [mode, setMode] = useState<'edit' | 'preview'>('preview');
   const [sections, setSections] = useState<DocSection[]>([]);
   const [expandedSection, setExpandedSection] = useState<number | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [isRefining, setIsRefining] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -191,11 +193,58 @@ const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, an
     downloadFile(blob, `${docTitle.replace(/\s+/g, '_')}.doc`);
   };
 
-  const handlePrintPDF = () => {
+  const handleDownloadPDF = () => {
     setMode('preview');
+    setIsGeneratingPDF(true);
+    
     setTimeout(() => {
-      window.print();
-    }, 150);
+      const element = previewRef.current;
+      if (!element) {
+        setIsGeneratingPDF(false);
+        return;
+      }
+
+      // Añadimos clase de exportación y reseteamos el scroll para evitar página en blanco
+      element.classList.add('pdf-export-mode');
+
+      const opt = {
+        margin:       [10, 10, 10, 10], // Ajustados márgenes para html2pdf
+        filename:     `${docTitle.replace(/\s+/g, '_')}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { 
+          scale: 2, 
+          useCORS: true,
+          scrollY: 0,
+          windowHeight: element.scrollHeight + 100, // Forzar altura total
+          letterRendering: true
+        },
+        jsPDF:        { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'landscape' 
+        },
+        pagebreak: { 
+          mode: ['css', 'legacy'], 
+          before: 'h2' 
+        }
+      };
+
+      // @ts-ignore
+      window.html2pdf()
+        .from(element)
+        .set(opt)
+        .save()
+        .then(() => {
+          element.classList.remove('pdf-export-mode');
+          setIsGeneratingPDF(false);
+        })
+        .catch((err: any) => {
+          console.error("Error generating PDF:", err);
+          element.classList.remove('pdf-export-mode');
+          setIsGeneratingPDF(false);
+          alert("Hubo un error al generar el PDF.");
+        });
+    }, 600);
   };
 
   return (
@@ -210,7 +259,7 @@ const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, an
           <div>
             <h2 className="text-lg font-bold text-slate-800">{docTitle}</h2>
             <p className="text-xs text-slate-500">
-              {mode === 'preview' ? 'Vista Previa (Formato Horizontal)' : 'Editor de Secciones'}
+              {mode === 'preview' ? 'Vista Previa (Formato Horizontal Directo)' : 'Editor de Secciones'}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -245,22 +294,25 @@ const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, an
             <button
               onClick={handleDownloadODT}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-100 hover:bg-blue-100 rounded-lg transition-colors"
-              title="Descargar para Word/LibreOffice (Horizontal)"
+              title="Descargar para Word/LibreOffice"
             >
               <FileType className="w-3.5 h-3.5" /> EDITABLE
             </button>
 
             <button
-              onClick={handlePrintPDF}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 rounded-lg transition-colors"
-              title="Exportar a PDF"
+              onClick={handleDownloadPDF}
+              disabled={isGeneratingPDF}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-white rounded-lg transition-all shadow-md active:scale-95 ${isGeneratingPDF ? 'bg-slate-400 cursor-wait' : 'bg-rose-600 hover:bg-rose-700'}`}
+              title="Descargar PDF Directo"
             >
-              <Printer className="w-3.5 h-3.5" /> PDF
+              {isGeneratingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+              {isGeneratingPDF ? 'Generando...' : 'PDF'}
             </button>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[70vh] print:border-none print:shadow-none relative">
+        {/* Contenedor del documento */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
           {isRefining && (
             <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center animate-fade-in">
               <div className="bg-white p-8 rounded-2xl shadow-xl border border-indigo-100 flex flex-col items-center gap-4">
@@ -279,6 +331,7 @@ const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, an
                   <SectionEditor 
                     key={section.id} 
                     section={section} 
+                    language={language}
                     isExpanded={expandedSection === section.id}
                     onToggle={() => setExpandedSection(expandedSection === section.id ? null : section.id)}
                     onChange={(newContent) => handleSectionChange(section.id, newContent)}
@@ -287,7 +340,7 @@ const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, an
                ))}
             </div>
           ) : (
-            <div className="markdown-body prose prose-slate max-w-none p-10 min-h-[70vh] overflow-y-auto custom-scrollbar print:p-0 print:overflow-visible" ref={previewRef}>
+            <div className={`markdown-body prose prose-slate max-w-none p-10 custom-scrollbar ${isGeneratingPDF ? '' : 'min-h-[70vh] overflow-y-auto'}`} ref={previewRef}>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
             </div>
           )}
@@ -311,14 +364,14 @@ const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, an
           <div className="p-4 space-y-4">
             <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg text-xs text-indigo-800 leading-relaxed flex gap-2">
               <Sparkles className="w-4 h-4 shrink-0 text-amber-500" />
-              <span>¿Algo no ha salido bien? Pídeme que cambie el tono, que añada más actividades o que sea más específico con las competencias.</span>
+              <span>¿Algo no ha salido bien? Pídeme que cambie el tono o que sea más específico.</span>
             </div>
 
             <form onSubmit={handleRefineSubmit} className="space-y-3">
               <textarea
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Ej: Haz que las situaciones sean más tecnológicas y usa gamificación..."
+                placeholder="Ej: Haz que sea más tecnológico..."
                 className="w-full min-h-[150px] p-3 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none bg-slate-50/50"
                 disabled={isRefining}
               />
@@ -331,12 +384,6 @@ const Editor: React.FC<EditorProps> = ({ initialContent, docTitle, onRestart, an
                 Reajustar con IA
               </button>
             </form>
-
-            <div className="pt-2">
-              <p className="text-[10px] text-slate-400 text-center">
-                Al reajustar, se generará una nueva versión del documento basada en tus instrucciones manteniendo el currículum.
-              </p>
-            </div>
           </div>
         </div>
       </aside>
@@ -350,9 +397,10 @@ interface SectionEditorProps {
   onToggle: () => void;
   onChange: (content: string) => void;
   onTitleChange: (title: string) => void;
+  language: string;
 }
 
-const SectionEditor: React.FC<SectionEditorProps> = ({ section, isExpanded, onToggle, onChange, onTitleChange }) => {
+const SectionEditor: React.FC<SectionEditorProps> = ({ section, isExpanded, onToggle, onChange, onTitleChange, language }) => {
   const isSA = section.title.toUpperCase().includes("SITUACIÓN DE APRENDIZAJE");
   const [useRaw, setUseRaw] = useState(!isSA);
   const [saData, setSaData] = useState<SAStructure | null>(null);
@@ -382,7 +430,7 @@ const SectionEditor: React.FC<SectionEditorProps> = ({ section, isExpanded, onTo
     const ctxParts = ctxRows.length > 1 ? ctxRows[1].split('|').map(s => s.trim()).filter(s => s !== "") : [];
 
     const orgTable = extract("Organización:", "Instrumentos");
-    const orgRows = orgTable.split('\n').filter(l => l.includes('|') && !l.includes('---') && !/sequenciaci|activitats/i.test(l));
+    const orgRows = orgTable.split('\n').filter(l => l.includes('|') && !l.includes('---') && !/sequenciaci|activitats|organizac|secuenciaci/i.test(l));
     const activities: ActivityRow[] = orgRows.map(row => {
       const cols = row.split('|').map(s => s.trim()).filter(s => s !== "");
       return {
@@ -408,10 +456,21 @@ const SectionEditor: React.FC<SectionEditorProps> = ({ section, isExpanded, onTo
     };
   };
 
+  const getLocalizedOrgHeaders = () => {
+    if (language.includes('Catalán') || language.includes('Valenciano')) {
+      return "| Seqüenciació d'activitats | Organització dels espais | Distribució del temps | Recursos i materials | Mesures de resposta educativa per a la inclusió |";
+    } else if (language.includes('Inglés')) {
+      return "| Sequencing of activities | Organization of spaces | Time distribution | Resources and materials | Educational response measures for inclusion |";
+    }
+    return "| Secuenciación de actividades | Organización de espacios | Distribución del tiempo | Recursos y materiales | Medidas de respuesta educativa para la inclusión |";
+  };
+
   const syncToMd = (newData: SAStructure) => {
     const tableRows = newData.activities.map(a => 
       `| ${a.sequencing} | ${a.spaces} | ${a.time} | ${a.resources} | ${a.inclusion} |`
     ).join('\n');
+
+    const orgHeader = getLocalizedOrgHeaders();
 
     const newMd = `**Contexto:**
 | Personal | Educativo | Social | Profesional |
@@ -431,7 +490,7 @@ ${newData.competencies}
 ${newData.knowledge}
 
 **Organización:**
-| Sequenciació d'activitats | Organització dels espais | Distribució del temps | Recursos i materials | Mesures de respuesta educativa per a la inclusió |
+${orgHeader}
 | :--- | :--- | :--- | :--- | :--- |
 ${tableRows}
 
@@ -505,7 +564,7 @@ ${newData.instruments}`;
                       <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                         <div className="md:col-span-2">
                           <span className="text-[9px] uppercase font-bold text-slate-400">Actividad / Título</span>
-                          <input className="w-full p-2 border rounded text-xs bg-slate-50 font-bold text-indigo-700" value={act.sequencing} onChange={e => updateActivity(idx, 'sequencing', e.target.value)} />
+                          <input className="w-full p-2 border rounded text-xs bg-slate-50 font-bold text-indigo-700" value={act.sequencing} onChange={(e) => updateActivity(idx, 'sequencing', e.target.value)} />
                         </div>
                         <div>
                           <span className="text-[9px] uppercase font-bold text-slate-400">Espacios</span>
