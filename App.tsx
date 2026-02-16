@@ -223,6 +223,9 @@ export default function App() {
                   analysisData={analysisData} 
                   onRefine={handleRefine}
                   language={context.language}
+                  gradeLevel={context.gradeLevel}
+                  subject={context.subject}
+                  department={context.department}
                 />
               )}
             </>

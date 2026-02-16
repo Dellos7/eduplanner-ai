@@ -44,37 +44,56 @@
       .markdown-body h3 { font-size: 1.3rem; font-weight: 700; margin: 1.8rem 0 0.8rem; color: #334155; }
       .markdown-body p { margin-bottom: 1rem; line-height: 1.7; color: #334155; text-align: justify; }
 
-      /* ESTILOS ESPECÍFICOS PARA PDF */
-      /* Cuando se añade la clase pdf-export-mode al contenedor markdown-body */
+      /* ESTILOS ESPECÍFICOS PARA PDF / IMPRESIÓN */
+      /* Forzamos que el contenedor de exportación no tenga desplazamientos extraños */
       .pdf-export-mode {
         padding: 0 !important;
         margin: 0 !important;
         background: white !important;
         width: 100% !important;
+        overflow: visible !important;
+        position: relative !important;
       }
 
+      /* Estilos para que el header y footer se repitan usando el truco de table-header-group */
+      .pdf-export-mode table.print-wrapper {
+        width: 100%;
+        border-collapse: collapse;
+        border: none !important;
+      }
+      
+      .pdf-export-mode thead.print-header {
+        display: table-header-group !important;
+      }
+      
+      .pdf-export-mode tfoot.print-footer {
+        display: table-footer-group !important;
+      }
+
+      /* Control de saltos de página y prevención de cortes */
       .pdf-export-mode h2 {
         page-break-before: always !important;
         margin-top: 0 !important;
         padding-top: 10mm !important;
       }
 
-      /* Evitar que el primer h1 o h2 tenga un salto de página */
-      .pdf-export-mode h1:first-child,
-      .pdf-export-mode h2:first-child,
-      .pdf-export-mode > *:first-child {
+      /* El primer elemento visible del cuerpo NO debe saltar página */
+      .pdf-export-mode .pdf-content-body > h1:first-child,
+      .pdf-export-mode .pdf-content-body > h2:first-child,
+      .pdf-export-mode .pdf-content-body > *:first-child {
         page-break-before: avoid !important;
         margin-top: 0 !important;
         padding-top: 0 !important;
       }
 
-      .pdf-export-mode table {
-        page-break-inside: avoid !important;
-        border: 1px solid #94a3b8 !important;
-        margin-bottom: 15pt !important;
-      }
-
-      .pdf-export-mode tr {
+      /* Evitar que se corten bloques importantes */
+      .pdf-export-mode table:not(.print-wrapper), 
+      .pdf-export-mode tr, 
+      .pdf-export-mode p, 
+      .pdf-export-mode li,
+      .pdf-export-mode h1, 
+      .pdf-export-mode h2, 
+      .pdf-export-mode h3 {
         page-break-inside: avoid !important;
       }
 
