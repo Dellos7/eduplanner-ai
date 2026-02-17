@@ -45,59 +45,42 @@
       .markdown-body p { margin-bottom: 1rem; line-height: 1.7; color: #334155; text-align: justify; }
 
       /* ESTILOS ESPECÍFICOS PARA PDF / IMPRESIÓN */
-      /* Forzamos que el contenedor de exportación no tenga desplazamientos extraños */
       .pdf-export-mode {
         padding: 0 !important;
         margin: 0 !important;
         background: white !important;
         width: 100% !important;
-        overflow: visible !important;
-        position: relative !important;
+        /* Reset de posición para que html2pdf capture bien */
+        position: static !important;
       }
 
-      /* Estilos para que el header y footer se repitan usando el truco de table-header-group */
-      .pdf-export-mode table.print-wrapper {
-        width: 100%;
-        border-collapse: collapse;
-        border: none !important;
-      }
-      
-      .pdf-export-mode thead.print-header {
-        display: table-header-group !important;
-      }
-      
-      .pdf-export-mode tfoot.print-footer {
-        display: table-footer-group !important;
-      }
-
-      /* Control de saltos de página y prevención de cortes */
+      /* Control estricto de saltos de página */
       .pdf-export-mode h2 {
         page-break-before: always !important;
         margin-top: 0 !important;
         padding-top: 10mm !important;
       }
 
-      /* El primer elemento visible del cuerpo NO debe saltar página */
-      .pdf-export-mode .pdf-content-body > h1:first-child,
-      .pdf-export-mode .pdf-content-body > h2:first-child,
-      .pdf-export-mode .pdf-content-body > *:first-child {
+      /* Evitar salto de página en el primer elemento */
+      .pdf-export-mode > *:first-child,
+      .pdf-export-mode > h1:first-child,
+      .pdf-export-mode > h2:first-child {
         page-break-before: avoid !important;
         margin-top: 0 !important;
         padding-top: 0 !important;
       }
 
-      /* Evitar que se corten bloques importantes */
-      .pdf-export-mode table:not(.print-wrapper), 
+      /* Evitar cortes dentro de elementos clave */
+      .pdf-export-mode table, 
       .pdf-export-mode tr, 
       .pdf-export-mode p, 
-      .pdf-export-mode li,
-      .pdf-export-mode h1, 
-      .pdf-export-mode h2, 
-      .pdf-export-mode h3 {
+      .pdf-export-mode li {
         page-break-inside: avoid !important;
       }
 
-      .pdf-export-mode h1, .pdf-export-mode h2, .pdf-export-mode h3 {
+      .pdf-export-mode h1, 
+      .pdf-export-mode h2, 
+      .pdf-export-mode h3 {
         page-break-after: avoid !important;
       }
 

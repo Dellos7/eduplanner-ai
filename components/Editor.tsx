@@ -172,37 +172,41 @@ const Editor: React.FC<EditorProps> = ({
     downloadFile(blob, `${docTitle.replace(/\s+/g, '_')}.md`);
   };
 
-  const handleDownloadODT = () => {
-    // Definición de Header y Footer usando el estándar MSO XML para Word
-    const headerContent = `
-      <div style='mso-element:header' id=h1>
-        <p class=MsoHeader>
-          <table border=0 cellspacing=0 cellpadding=0 style='border-collapse:collapse;border:none;width:100%'>
-            <tr>
-              <td style='border:none;border-bottom:solid #6366f1 1.0pt;padding:0cm 0cm 4.0pt 0cm' valign=top>
-                <p style='margin:0cm;font-size:10.0pt;font-family:"Arial",sans-serif;color:#64748b'>
-                  <strong>Profesor:</strong> ${teacherName || '---'} | <strong>Dpto:</strong> ${department}
-                </p>
-              </td>
-              <td style='border:none;border-bottom:solid #6366f1 1.0pt;padding:0cm 0cm 4.0pt 0cm' valign=top align=right>
-                <p style='margin:0cm;font-size:10.0pt;font-family:"Arial",sans-serif;color:#64748b'>
-                  <strong>${subject}</strong> (${gradeLevel})
-                </p>
-              </td>
-            </tr>
-          </table>
-        </p>
-      </div>
-    `;
-
-    const footerContent = `
-      <div style='mso-element:footer' id=f1>
-        <p class=MsoFooter align=right style='text-align:right'>
-          <span style='font-size:9.0pt;font-family:"Arial",sans-serif;color:#94a3b8'>
-            EduPlanner AI - Pág. <span style='mso-field-code:" PAGE "'></span>
-          </span>
-        </p>
-      </div>
+  const handleDownloadDoc = () => {
+    // Definimos el Header y Footer en una tabla oculta que Word usa para MSO definitions
+    // El truco es usar style='margin:0in 0in 0in 9in' para empujarlo fuera de la vista principal en body
+    const headerFooterContent = `
+      <table id='hrdftrtbl' border='0' cellspacing='0' cellpadding='0' style='margin:0in 0in 0in 900in; width:1px; height:1px; overflow:hidden;'>
+        <tr>
+          <td>
+            <div style='mso-element:header' id=h1>
+              <table border=0 cellspacing=0 cellpadding=0 style='border-collapse:collapse;border:none;width:100%'>
+                <tr>
+                  <td style='border:none;border-bottom:solid #6366f1 1.0pt;padding:0cm 0cm 4.0pt 0cm' valign=top>
+                    <p style='margin:0cm;font-size:10.0pt;font-family:"Arial",sans-serif;color:#64748b'>
+                      <strong>Profesor:</strong> ${teacherName || '---'} | <strong>Dpto:</strong> ${department}
+                    </p>
+                  </td>
+                  <td style='border:none;border-bottom:solid #6366f1 1.0pt;padding:0cm 0cm 4.0pt 0cm' valign=top align=right>
+                    <p style='margin:0cm;font-size:10.0pt;font-family:"Arial",sans-serif;color:#64748b'>
+                      <strong>${subject}</strong> (${gradeLevel})
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </td>
+          <td>
+            <div style='mso-element:footer' id=f1>
+              <p class=MsoFooter align=right style='text-align:right'>
+                <span style='font-size:9.0pt;font-family:"Arial",sans-serif;color:#94a3b8'>
+                  EduPlanner AI - Pág. <span style='mso-field-code:" PAGE "'></span>
+                </span>
+              </p>
+            </div>
+          </td>
+        </tr>
+      </table>
     `;
 
     const htmlString = `
@@ -220,42 +224,33 @@ const Editor: React.FC<EditorProps> = ({
         </xml>
         <![endif]-->
         <style>
-          /* Definición de página Horizontal A4 */
           @page Section1 {
             size: 29.7cm 21.0cm;
             margin: 2.0cm 2.0cm 2.0cm 2.0cm;
             mso-page-orientation: landscape;
             mso-header: h1;
             mso-footer: f1;
-            mso-paper-source:0;
           }
           div.Section1 { page: Section1; }
           
-          /* Estilos de tabla forzando bordes visibles */
           table { border-collapse: collapse; width: 100%; margin: 15pt 0; border: 1px solid #000000; }
           th, td { border: 1px solid #000000; padding: 6pt; text-align: left; font-size: 10pt; vertical-align: top; }
           th { background-color: #f1f5f9; font-weight: bold; }
-
-          /* Estilos generales */
+          
           body { font-family: 'Arial', sans-serif; font-size: 11pt; line-height: 1.3; color: #000000; }
           h1 { font-size: 20pt; color: #000000; margin-bottom: 12pt; text-align: center; page-break-after: avoid; }
           h2 { font-size: 16pt; color: #1e293b; border-bottom: 1pt solid #cbd5e1; margin-top: 18pt; margin-bottom: 6pt; page-break-before: always; page-break-after: avoid; }
-          h3 { font-size: 13pt; margin-top: 12pt; margin-bottom: 6pt; page-break-after: avoid; }
           p { margin-bottom: 8pt; text-align: justify; }
 
-          /* Definición específica de Header/Footer para MSO */
           p.MsoHeader, li.MsoHeader, div.MsoHeader { margin:0cm; margin-bottom:.0001pt; font-size:10.0pt; font-family:"Arial",sans-serif; }
           p.MsoFooter, li.MsoFooter, div.MsoFooter { margin:0cm; margin-bottom:.0001pt; font-size:10.0pt; font-family:"Arial",sans-serif; }
         </style>
       </head>
       <body>
-        <!-- Contenedores de Header y Footer (ocultos en el flujo normal, usados por @page) -->
-        ${headerContent}
-        ${footerContent}
-
         <div class="Section1">
           ${previewRef.current?.innerHTML || ''}
         </div>
+        ${headerFooterContent}
       </body>
       </html>
     `;
@@ -274,11 +269,10 @@ const Editor: React.FC<EditorProps> = ({
         return;
       }
 
-      // Preparar el elemento para la captura
       element.classList.add('pdf-export-mode');
 
       const opt = {
-        margin:       [25, 10, 15, 10], // Top margen mayor para el header (25mm)
+        margin:       [25, 10, 15, 10], 
         filename:     `${docTitle.replace(/\s+/g, '_')}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { 
@@ -297,8 +291,8 @@ const Editor: React.FC<EditorProps> = ({
       window.html2pdf()
         .from(element)
         .set(opt)
-        .toPdf() // Generamos el PDF pero no lo guardamos aún
-        .get('pdf') // Obtenemos la instancia de jsPDF
+        .toPdf()
+        .get('pdf')
         .then((pdf: any) => {
           const totalPages = pdf.internal.getNumberOfPages();
           const pageWidth = pdf.internal.pageSize.getWidth();
@@ -307,27 +301,21 @@ const Editor: React.FC<EditorProps> = ({
           for (let i = 1; i <= totalPages; i++) {
             pdf.setPage(i);
             
-            // --- HEADER ---
+            // HEADER
             pdf.setFontSize(8);
-            pdf.setTextColor(100, 116, 139); // Slate-500
-            
-            // Línea izquierda (Profesor/Dpto)
+            pdf.setTextColor(100, 116, 139);
             pdf.setFont("helvetica", "bold");
             pdf.text(`Profesor: ${teacherName || '---'} | Dpto: ${department}`, 10, 10);
             
-            // Línea derecha (Asignatura)
             const rightText = `${subject} (${gradeLevel})`;
             const textWidth = pdf.getStringUnitWidth(rightText) * 8 / pdf.internal.scaleFactor;
             pdf.text(rightText, pageWidth - 10 - textWidth, 10);
             
-            // Línea divisoria Header
-            pdf.setDrawColor(226, 232, 240); // Slate-200
+            pdf.setDrawColor(226, 232, 240);
             pdf.line(10, 12, pageWidth - 10, 12);
 
-            // --- FOOTER ---
-            // Línea divisoria Footer
+            // FOOTER
             pdf.line(10, pageHeight - 12, pageWidth - 10, pageHeight - 12);
-            
             pdf.setFontSize(8);
             const footerText = `EduPlanner AI - Página ${i} de ${totalPages}`;
             const footerWidth = pdf.getStringUnitWidth(footerText) * 8 / pdf.internal.scaleFactor;
@@ -355,7 +343,6 @@ const Editor: React.FC<EditorProps> = ({
           <CurricularReference analysisData={analysisData} className="mb-6" />
         </div>
 
-        {/* Top Controls: Teacher Info & Export */}
         <div className="flex flex-col gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm sticky top-20 z-10 print:hidden">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex-1 w-full md:w-auto">
@@ -384,8 +371,8 @@ const Editor: React.FC<EditorProps> = ({
               
               <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
 
-              <button onClick={handleDownloadODT} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-100 hover:bg-blue-100 rounded-lg transition-colors">
-                <FileType className="w-4 h-4" /> EDITABLE
+              <button onClick={handleDownloadDoc} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-100 hover:bg-blue-100 rounded-lg transition-colors">
+                <FileType className="w-4 h-4" /> DOC / ODT
               </button>
 
               <button 
@@ -401,11 +388,10 @@ const Editor: React.FC<EditorProps> = ({
           
           <div className="flex items-center gap-2 text-[10px] text-slate-400 bg-slate-50 p-2 rounded-lg">
             <Info className="w-3 h-3 text-indigo-400" />
-            <span>El nombre del profesor, asignatura y departamento aparecerán en el encabezado de todas las páginas del documento exportado.</span>
+            <span>El nombre del profesor, asignatura y departamento aparecerán en el encabezado de todas las páginas.</span>
           </div>
         </div>
 
-        {/* Contenedor del documento */}
         <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden relative">
           {isRefining && (
             <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center animate-fade-in">
@@ -442,7 +428,6 @@ const Editor: React.FC<EditorProps> = ({
         </button>
       </div>
 
-      {/* Sidebar Chat */}
       <aside className="w-full lg:w-96 shrink-0 print:hidden">
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col sticky top-20">
           <div className="p-4 border-b border-slate-100 bg-slate-50 rounded-t-xl flex items-center gap-2">
