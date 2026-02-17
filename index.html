@@ -48,10 +48,12 @@
       .pdf-export-mode {
         padding: 0 !important;
         margin: 0 !important;
+        /* HACK: Forzar margen superior negativo elimina la página en blanco inicial en la mayoría de renders de html2pdf */
+        margin-top: -1px !important;
         background: white !important;
         width: 100% !important;
-        /* Reset de posición para que html2pdf capture bien */
         position: static !important;
+        height: auto !important;
       }
 
       /* Control estricto de saltos de página */

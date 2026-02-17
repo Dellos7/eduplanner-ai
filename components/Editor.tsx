@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Download, Edit3, ArrowLeft, Save, FileText, ChevronDown, ChevronUp, Layers, Type, LayoutTemplate, FileJson, FileType, Printer, Plus, Trash2, Send, MessageSquare, Loader2, Sparkles, User, Info } from 'lucide-react';
+import { Download, Edit3, ArrowLeft, Save, FileText, ChevronDown, ChevronUp, Layers, Type, LayoutTemplate, FileJson, FileType, Printer, Plus, Trash2, Send, MessageSquare, Loader2, Sparkles, User, Info, CheckSquare, Square, AlertCircle, XCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CurriculumAnalysis } from '../types';
@@ -15,7 +15,6 @@ interface EditorProps {
   language?: string;
   gradeLevel?: string;
   subject?: string;
-  department?: string;
 }
 
 interface DocSection {
@@ -55,16 +54,27 @@ const Editor: React.FC<EditorProps> = ({
   language = 'Castellano',
   gradeLevel = '',
   subject = '',
-  department = ''
 }) => {
   const [content, setContent] = useState(initialContent);
   const [teacherName, setTeacherName] = useState(localStorage.getItem('TEACHER_NAME') || '');
+  const [department, setDepartment] = useState(localStorage.getItem('DEPARTMENT_NAME') || '');
+  
+  // Opciones de encabezado/pie de página
+  const [showTeacher, setShowTeacher] = useState(true);
+  const [showDepartment, setShowDepartment] = useState(true);
+  const [showSubject, setShowSubject] = useState(true);
+  const [showPageNumbers, setShowPageNumbers] = useState(true);
+
   const [mode, setMode] = useState<'edit' | 'preview'>('preview');
   const [sections, setSections] = useState<DocSection[]>([]);
   const [expandedSection, setExpandedSection] = useState<number | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [isRefining, setIsRefining] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  
+  // Estado para mensajes de error de validación visuales
+  const [validationError, setValidationError] = useState<string | null>(null);
+  
   const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -74,6 +84,15 @@ const Editor: React.FC<EditorProps> = ({
   useEffect(() => {
     localStorage.setItem('TEACHER_NAME', teacherName);
   }, [teacherName]);
+  
+  useEffect(() => {
+    localStorage.setItem('DEPARTMENT_NAME', department);
+  }, [department]);
+
+  // Limpiar error cuando el usuario empieza a corregirlo
+  useEffect(() => {
+    if (validationError) setValidationError(null);
+  }, [teacherName, department, showTeacher, showDepartment]);
 
   useEffect(() => {
     if (mode === 'edit') {
@@ -167,14 +186,42 @@ const Editor: React.FC<EditorProps> = ({
     document.body.removeChild(element);
   };
 
+  // Validar requisitos previos a la exportación con Feedback VISUAL
+  const validateExport = (): boolean => {
+    setValidationError(null);
+    
+    if (showTeacher && !teacherName.trim()) {
+      setValidationError("⚠️ Falta el Nombre del Docente (escríbelo o desmarca la casilla).");
+      return false;
+    }
+    if (showDepartment && !department.trim()) {
+      setValidationError("⚠️ Falta el Departamento (escríbelo o desmarca la casilla).");
+      return false;
+    }
+    return true;
+  };
+
   const handleDownloadMD = () => {
+    if (!validateExport()) return;
     const blob = new Blob([content], {type: 'text/markdown'});
     downloadFile(blob, `${docTitle.replace(/\s+/g, '_')}.md`);
   };
 
+  // --- LOGICA DE EXPORTACIÓN DOC/ODT ---
   const handleDownloadDoc = () => {
-    // Definimos el Header y Footer en una tabla oculta que Word usa para MSO definitions
-    // El truco es usar style='margin:0in 0in 0in 9in' para empujarlo fuera de la vista principal en body
+    if (!validateExport()) return;
+
+    // Construcción dinámica de celdas según checkboxes
+    let leftCellContent = "";
+    if (showTeacher && teacherName) leftCellContent += `<strong>Profesor:</strong> ${teacherName} `;
+    if (showTeacher && teacherName && showDepartment && department) leftCellContent += " | ";
+    if (showDepartment && department) leftCellContent += `<strong>Dpto:</strong> ${department}`;
+
+    let rightCellContent = "";
+    if (showSubject) rightCellContent = `<strong>${subject}</strong> (${gradeLevel})`;
+
+    const pageNumberField = showPageNumbers ? `<span style='mso-field-code:" PAGE "'></span>` : "";
+
     const headerFooterContent = `
       <table id='hrdftrtbl' border='0' cellspacing='0' cellpadding='0' style='margin:0in 0in 0in 900in; width:1px; height:1px; overflow:hidden;'>
         <tr>
@@ -184,12 +231,12 @@ const Editor: React.FC<EditorProps> = ({
                 <tr>
                   <td style='border:none;border-bottom:solid #6366f1 1.0pt;padding:0cm 0cm 4.0pt 0cm' valign=top>
                     <p style='margin:0cm;font-size:10.0pt;font-family:"Arial",sans-serif;color:#64748b'>
-                      <strong>Profesor:</strong> ${teacherName || '---'} | <strong>Dpto:</strong> ${department}
+                      ${leftCellContent}
                     </p>
                   </td>
                   <td style='border:none;border-bottom:solid #6366f1 1.0pt;padding:0cm 0cm 4.0pt 0cm' valign=top align=right>
                     <p style='margin:0cm;font-size:10.0pt;font-family:"Arial",sans-serif;color:#64748b'>
-                      <strong>${subject}</strong> (${gradeLevel})
+                      ${rightCellContent}
                     </p>
                   </td>
                 </tr>
@@ -200,7 +247,7 @@ const Editor: React.FC<EditorProps> = ({
             <div style='mso-element:footer' id=f1>
               <p class=MsoFooter align=right style='text-align:right'>
                 <span style='font-size:9.0pt;font-family:"Arial",sans-serif;color:#94a3b8'>
-                  EduPlanner AI - Pág. <span style='mso-field-code:" PAGE "'></span>
+                  ${pageNumberField}
                 </span>
               </p>
             </div>
@@ -258,7 +305,10 @@ const Editor: React.FC<EditorProps> = ({
     downloadFile(blob, `${docTitle.replace(/\s+/g, '_')}.doc`);
   };
 
+  // --- LOGICA DE EXPORTACIÓN PDF ---
   const handleDownloadPDF = () => {
+    if (!validateExport()) return;
+
     setMode('preview');
     setIsGeneratingPDF(true);
     
@@ -305,21 +355,36 @@ const Editor: React.FC<EditorProps> = ({
             pdf.setFontSize(8);
             pdf.setTextColor(100, 116, 139);
             pdf.setFont("helvetica", "bold");
-            pdf.text(`Profesor: ${teacherName || '---'} | Dpto: ${department}`, 10, 10);
             
-            const rightText = `${subject} (${gradeLevel})`;
-            const textWidth = pdf.getStringUnitWidth(rightText) * 8 / pdf.internal.scaleFactor;
-            pdf.text(rightText, pageWidth - 10 - textWidth, 10);
+            // Construcción dinámica del header izquierdo
+            let leftParts = [];
+            if (showTeacher && teacherName) leftParts.push(`Profesor: ${teacherName}`);
+            if (showDepartment && department) leftParts.push(`Dpto: ${department}`);
+            if (leftParts.length > 0) {
+              pdf.text(leftParts.join(" | "), 10, 10);
+            }
             
-            pdf.setDrawColor(226, 232, 240);
-            pdf.line(10, 12, pageWidth - 10, 12);
+            // Construcción dinámica del header derecho
+            if (showSubject) {
+              const rightText = `${subject} (${gradeLevel})`;
+              const textWidth = pdf.getStringUnitWidth(rightText) * 8 / pdf.internal.scaleFactor;
+              pdf.text(rightText, pageWidth - 10 - textWidth, 10);
+            }
+            
+            // Línea separadora Header
+            if (leftParts.length > 0 || showSubject) {
+              pdf.setDrawColor(226, 232, 240);
+              pdf.line(10, 12, pageWidth - 10, 12);
+            }
 
             // FOOTER
-            pdf.line(10, pageHeight - 12, pageWidth - 10, pageHeight - 12);
-            pdf.setFontSize(8);
-            const footerText = `EduPlanner AI - Página ${i} de ${totalPages}`;
-            const footerWidth = pdf.getStringUnitWidth(footerText) * 8 / pdf.internal.scaleFactor;
-            pdf.text(footerText, pageWidth - 10 - footerWidth, pageHeight - 7);
+            if (showPageNumbers) {
+              pdf.line(10, pageHeight - 12, pageWidth - 10, pageHeight - 12);
+              pdf.setFontSize(8);
+              const footerText = `Página ${i} de ${totalPages}`;
+              const footerWidth = pdf.getStringUnitWidth(footerText) * 8 / pdf.internal.scaleFactor;
+              pdf.text(footerText, pageWidth - 10 - footerWidth, pageHeight - 7);
+            }
           }
         })
         .save()
@@ -343,55 +408,104 @@ const Editor: React.FC<EditorProps> = ({
           <CurricularReference analysisData={analysisData} className="mb-6" />
         </div>
 
+        {/* Top Controls: Teacher Info & Export */}
         <div className="flex flex-col gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm sticky top-20 z-10 print:hidden">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex-1 w-full md:w-auto">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1 mb-1">
-                <User className="w-3 h-3" /> Datos del Docente
-              </label>
-              <input 
-                type="text"
-                value={teacherName}
-                onChange={(e) => setTeacherName(e.target.value)}
-                placeholder="Escribe tu nombre y apellidos..."
-                className="w-full max-w-md px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50/50 hover:bg-white transition-all font-medium"
-              />
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="flex-1 space-y-4">
+              <div className="flex items-center gap-2">
+                 <User className="w-4 h-4 text-indigo-500" />
+                 <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Datos para el Encabezado</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input 
+                  type="text"
+                  value={teacherName}
+                  onChange={(e) => setTeacherName(e.target.value)}
+                  placeholder="Nombre del Docente..."
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium ${validationError && !teacherName && showTeacher ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-slate-50/50 hover:bg-white'}`}
+                />
+                <input 
+                  type="text"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  placeholder="Departamento Didáctico..."
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium ${validationError && !department && showDepartment ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-slate-50/50 hover:bg-white'}`}
+                />
+              </div>
+
+              {/* Checkboxes de configuración */}
+              <div className="flex flex-wrap items-center gap-4 pt-2">
+                 <label className="flex items-center gap-1.5 cursor-pointer group">
+                    <input type="checkbox" checked={showTeacher} onChange={e => setShowTeacher(e.target.checked)} className="hidden" />
+                    {showTeacher ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4 text-slate-400" />}
+                    <span className={`text-xs ${showTeacher ? 'text-indigo-700 font-semibold' : 'text-slate-500'}`}>Incluir Docente</span>
+                 </label>
+                 <label className="flex items-center gap-1.5 cursor-pointer group">
+                    <input type="checkbox" checked={showDepartment} onChange={e => setShowDepartment(e.target.checked)} className="hidden" />
+                    {showDepartment ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4 text-slate-400" />}
+                    <span className={`text-xs ${showDepartment ? 'text-indigo-700 font-semibold' : 'text-slate-500'}`}>Incluir Dept.</span>
+                 </label>
+                 <label className="flex items-center gap-1.5 cursor-pointer group">
+                    <input type="checkbox" checked={showSubject} onChange={e => setShowSubject(e.target.checked)} className="hidden" />
+                    {showSubject ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4 text-slate-400" />}
+                    <span className={`text-xs ${showSubject ? 'text-indigo-700 font-semibold' : 'text-slate-500'}`}>Incluir Asignatura</span>
+                 </label>
+                 <div className="w-[1px] h-4 bg-slate-300 mx-2"></div>
+                 <label className="flex items-center gap-1.5 cursor-pointer group">
+                    <input type="checkbox" checked={showPageNumbers} onChange={e => setShowPageNumbers(e.target.checked)} className="hidden" />
+                    {showPageNumbers ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4 text-slate-400" />}
+                    <span className={`text-xs ${showPageNumbers ? 'text-indigo-700 font-semibold' : 'text-slate-500'}`}>Numeración Pág.</span>
+                 </label>
+              </div>
             </div>
             
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {mode === 'preview' ? (
-                <button onClick={() => setMode('edit')} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-all shadow-md">
-                  <Edit3 className="w-4 h-4" /> Editar Secciones
-                </button>
-              ) : (
-                <button onClick={saveSectionsToContent} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all shadow-md">
-                  <Save className="w-4 h-4" /> Guardar y Previsualizar
-                </button>
+            <div className="flex flex-col justify-end gap-2 shrink-0 border-l border-slate-100 pl-6 relative">
+              {/* Notificación visual de error de validación */}
+              {validationError && (
+                <div className="absolute bottom-full right-0 mb-3 w-64 bg-rose-600 text-white p-3 rounded-xl text-xs font-bold shadow-xl animate-fade-in z-50 flex items-start gap-2">
+                   <AlertCircle className="w-4 h-4 shrink-0 text-rose-200 mt-0.5" />
+                   <p className="leading-tight">{validationError}</p>
+                   <button onClick={() => setValidationError(null)} className="ml-auto text-rose-200 hover:text-white"><XCircle className="w-4 h-4" /></button>
+                   <div className="absolute -bottom-1.5 right-8 w-3 h-3 bg-rose-600 rotate-45"></div>
+                </div>
               )}
+
+              <div className="flex gap-2">
+                {mode === 'preview' ? (
+                  <button onClick={() => setMode('edit')} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-all shadow-md w-full justify-center">
+                    <Edit3 className="w-4 h-4" /> Editar
+                  </button>
+                ) : (
+                  <button onClick={saveSectionsToContent} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all shadow-md w-full justify-center">
+                    <Save className="w-4 h-4" /> Guardar
+                  </button>
+                )}
+              </div>
               
-              <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
+              <div className="flex gap-2">
+                <button onClick={handleDownloadMD} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 rounded-lg transition-colors" title="Descargar Markdown">
+                  <FileText className="w-4 h-4" /> MD
+                </button>
 
-              <button onClick={handleDownloadDoc} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-100 hover:bg-blue-100 rounded-lg transition-colors">
-                <FileType className="w-4 h-4" /> DOC / ODT
-              </button>
+                <button onClick={handleDownloadDoc} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-100 hover:bg-blue-100 rounded-lg transition-colors" title="Descargar Word / OpenOffice">
+                  <FileType className="w-4 h-4" /> DOC
+                </button>
 
-              <button 
-                onClick={handleDownloadPDF} 
-                disabled={isGeneratingPDF}
-                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white rounded-lg transition-all shadow-md ${isGeneratingPDF ? 'bg-slate-400 cursor-wait' : 'bg-rose-600 hover:bg-rose-700 active:scale-95'}`}
-              >
-                {isGeneratingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
-                {isGeneratingPDF ? 'Generando...' : 'PDF'}
-              </button>
+                <button 
+                  onClick={handleDownloadPDF} 
+                  disabled={isGeneratingPDF}
+                  title="Descargar PDF"
+                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white rounded-lg transition-all shadow-md ${isGeneratingPDF ? 'bg-slate-400 cursor-wait' : 'bg-rose-600 hover:bg-rose-700 active:scale-95'}`}
+                >
+                  {isGeneratingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                  {isGeneratingPDF ? '...' : 'PDF'}
+                </button>
+              </div>
             </div>
-          </div>
-          
-          <div className="flex items-center gap-2 text-[10px] text-slate-400 bg-slate-50 p-2 rounded-lg">
-            <Info className="w-3 h-3 text-indigo-400" />
-            <span>El nombre del profesor, asignatura y departamento aparecerán en el encabezado de todas las páginas.</span>
           </div>
         </div>
 
+        {/* Contenedor del documento */}
         <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden relative">
           {isRefining && (
             <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center animate-fade-in">

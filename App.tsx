@@ -11,7 +11,6 @@ import { Loader2, AlertCircle, FileSearch, Key } from 'lucide-react';
 
 const initialContext: TeacherContext = {
   subject: '',
-  department: '',
   gradeLevel: '',
   weeklyHours: 3,
   language: 'Castellano',
@@ -225,7 +224,6 @@ export default function App() {
                   language={context.language}
                   gradeLevel={context.gradeLevel}
                   subject={context.subject}
-                  department={context.department}
                 />
               )}
             </>

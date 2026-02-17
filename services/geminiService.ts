@@ -15,10 +15,15 @@ const getAiClient = () => {
 
 const SYSTEM_INSTRUCTION = `
 Eres un experto pedagogo y jefe de departamento con amplia experiencia en normativa educativa (LOMLOE) y diseño curricular.
-Tu objetivo es redactar documentos oficiales precisos basándote en el currículum oficial (PDF) y el contexto proporcionado.
-Debes seguir estrictamente la estructura de Markdown solicitada para que el sistema pueda procesar los campos.
-Usa un lenguaje técnico, inclusivo y profesional.
-IMPORTANTE: Debes escribir el documento ÚNICA Y EXCLUSIVAMENTE en el idioma solicitado por el usuario.
+Tu tarea es generar documentos técnicos educativos basándote en el currículum oficial (PDF) y el contexto proporcionado.
+
+REGLAS ESTRICTAS DE RESPUESTA:
+1. NO SALUDES, NO TE PRESENTES, NO DES EXPLICACIONES PREVIAS NI POSTERIORES.
+2. NO inicies la respuesta con frases como "Como experto pedagogo...", "Aquí tienes...", "A continuación...".
+3. Empieza DIRECTAMENTE con el primer encabezado Markdown del documento (ej: # o ##).
+4. Sigue estrictamente la estructura de Markdown solicitada.
+5. Usa un lenguaje técnico, inclusivo y profesional.
+6. El documento debe estar escrito ÚNICA Y EXCLUSIVAMENTE en el idioma solicitado por el usuario.
 `;
 
 const getOrganizationHeaders = (language: string) => {
@@ -81,12 +86,14 @@ export const generateEducationalDocument = async (
   let prompt = "";
   const needsString = [...context.selectedNeeds, context.otherNeeds].filter(Boolean).join(", ");
   const methodologiesString = context.methodologyPreference.join(", ");
-  const langInstruction = `EL DOCUMENTO DEBE ESTAR ESCRITO ÍNTEGRAMENTE EN: ${context.language}.`;
+  const langInstruction = `IDIOMA DEL DOCUMENTO: ${context.language}.`;
 
   if (docType === DocType.PROPUESTA) {
     prompt = `
       ${langInstruction}
       Genera una **PROPUESTA PEDAGÓGICA DE DEPARTAMENTO**.
+      IMPORTANTE: No incluyas texto introductorio ("Claro, aquí tienes..."). Empieza directamente con el título.
+      
       Usa exactamente estos encabezados de nivel 2:
 
       # PROPUESTA PEDAGÓGICA: ${context.subject}
@@ -122,9 +129,13 @@ export const generateEducationalDocument = async (
       Genera ${saCountText} **SITUACIONES DE APRENDIZAJE** detalladas para ${context.subject} (${context.gradeLevel}).
       ${ideasPrompt}
       
-      PARA CADA SITUACIÓN DE APRENDIZAJE, debes usar EXACTAMENTE esta estructura:
+      REQUISITOS OBLIGATORIOS:
+      1. Empieza directamente con la primera situación. No saludes.
+      2. **NUMERA SIEMPRE** las situaciones en el título (ej: 1, 2, 3...).
+      
+      ESTRUCTURA EXACTA PARA CADA SITUACIÓN DE APRENDIZAJE:
 
-      ## SITUACIÓN DE APRENDIZAJE: [Título Sugerente]
+      ## SITUACIÓN DE APRENDIZAJE {NÚMERO}: [Título Sugerente]
 
       **Contexto:**
       | Personal | Educativo | Social | Profesional |
@@ -198,6 +209,7 @@ export const refineDocument = async (
 
     REGENERA el documento completo incorporando estas peticiones. 
     MANTÉN la estructura técnica de Markdown (tablas, encabezados h2, etc.) que se usó anteriormente.
+    NO AÑADAS texto conversacional al principio ni al final. Solo el documento.
     Usa el currículum adjunto para asegurar el rigor académico.
   `;
 

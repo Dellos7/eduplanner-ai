@@ -21,7 +21,6 @@ export interface CurriculumAnalysis {
 
 export interface TeacherContext {
   subject: string;
-  department: string;
   gradeLevel: string;
   weeklyHours: number;
   language: string;
