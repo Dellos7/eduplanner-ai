@@ -45,45 +45,70 @@
       .markdown-body p { margin-bottom: 1rem; line-height: 1.7; color: #334155; text-align: justify; }
 
       /* ESTILOS ESPECÍFICOS PARA PDF / IMPRESIÓN */
+      @media print {
+        @page {
+          margin: 15mm;
+        }
+        
+        body {
+          background: white !important;
+          padding-top: 20px !important; /* Espacio para el encabezado fijo */
+          padding-bottom: 20px !important; /* Espacio para el pie de página fijo */
+        }
+      }
+
       .pdf-export-mode {
-        padding: 0 !important;
-        margin: 0 !important;
-        /* HACK: Forzar margen superior negativo elimina la página en blanco inicial en la mayoría de renders de html2pdf */
-        margin-top: -1px !important;
-        background: white !important;
-        width: 100% !important;
-        position: static !important;
         height: auto !important;
+        overflow: visible !important;
+        font-size: 11px !important; 
+        line-height: 1.4 !important;
       }
 
-      /* Control estricto de saltos de página */
-      .pdf-export-mode h2 {
-        page-break-before: always !important;
-        margin-top: 0 !important;
-        padding-top: 10mm !important;
-      }
-
-      /* Evitar salto de página en el primer elemento */
-      .pdf-export-mode > *:first-child,
-      .pdf-export-mode > h1:first-child,
-      .pdf-export-mode > h2:first-child {
-        page-break-before: avoid !important;
+      .pdf-export-mode h1 {
+        font-size: 24px !important;
+        margin-bottom: 15px !important;
         margin-top: 0 !important;
         padding-top: 0 !important;
+        page-break-before: avoid !important;
       }
 
-      /* Evitar cortes dentro de elementos clave */
-      .pdf-export-mode table, 
-      .pdf-export-mode tr, 
-      .pdf-export-mode p, 
-      .pdf-export-mode li {
-        page-break-inside: avoid !important;
-      }
-
-      .pdf-export-mode h1, 
-      .pdf-export-mode h2, 
-      .pdf-export-mode h3 {
+      .pdf-export-mode h2 {
+        font-size: 18px !important;
+        margin-top: 20px !important;
+        margin-bottom: 10px !important;
+        border-bottom: 1px solid #ddd !important;
+        page-break-before: always !important;
         page-break-after: avoid !important;
+      }
+      
+      .pdf-export-mode h1 + h2,
+      .pdf-export-mode > h2:first-of-type {
+        page-break-before: avoid !important;
+      }
+
+      .pdf-export-mode h3 {
+        font-size: 14px !important;
+        margin-top: 15px !important;
+        margin-bottom: 8px !important;
+        page-break-after: avoid !important;
+      }
+
+      .pdf-export-mode table {
+        width: 100% !important;
+        max-width: 100% !important;
+        table-layout: fixed !important;
+        font-size: 10px !important;
+        margin-bottom: 10px !important;
+        word-wrap: break-word !important;
+      }
+      
+      .pdf-export-mode th, .pdf-export-mode td {
+        padding: 4px !important;
+        word-wrap: break-word !important;
+      }
+
+      .pdf-export-mode tr {
+        page-break-inside: avoid !important;
       }
 
       .custom-scrollbar::-webkit-scrollbar { width: 8px; }
@@ -107,6 +132,7 @@
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-slate-50 text-slate-900 antialiased">
     <div id="root"></div>

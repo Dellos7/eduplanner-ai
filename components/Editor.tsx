@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Download, Edit3, ArrowLeft, Save, FileText, ChevronDown, ChevronUp, Layers, Type, LayoutTemplate, FileJson, FileType, Printer, Plus, Trash2, Send, MessageSquare, Loader2, Sparkles, User, Info, CheckSquare, Square, AlertCircle, XCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import domtoimage from 'dom-to-image-more';
+import jsPDF from 'jspdf';
 import { CurriculumAnalysis } from '../types';
 import CurricularReference from './CurricularReference';
 
@@ -306,103 +308,124 @@ const Editor: React.FC<EditorProps> = ({
   };
 
   // --- LOGICA DE EXPORTACIÓN PDF ---
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (!validateExport()) return;
 
     setMode('preview');
     setIsGeneratingPDF(true);
     
-    setTimeout(() => {
+    try {
+      // Esperar a que React renderice el modo preview y los estilos pdf-export-mode
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
       const element = previewRef.current;
-      if (!element) {
-        setIsGeneratingPDF(false);
-        return;
+      if (!element) throw new Error("Elemento de vista previa no encontrado");
+
+      // Usar dom-to-image-more para generar un canvas de alta calidad
+      // dom-to-image-more funciona mejor con Tailwind v4 que html2canvas
+      const canvas = await domtoimage.toCanvas(element, {
+        quality: 1,
+        scale: 2, // Mayor escala para mejor calidad de texto
+        bgcolor: '#ffffff',
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left',
+        }
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF('p', 'pt', 'a4');
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      // Márgenes A4
+      const margin = 40;
+      const contentWidth = pdfWidth - (margin * 2);
+      const contentHeight = pdfHeight - (margin * 2);
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const imgWidth = contentWidth;
+      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+      
+      let heightLeft = imgHeight;
+      let position = margin;
+      let pageNumber = 1;
+
+      // Añadir primera página
+      pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+      heightLeft -= contentHeight;
+
+      // Añadir páginas siguientes
+      while (heightLeft > 0) {
+        position = margin - (pageNumber * contentHeight);
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+        heightLeft -= contentHeight;
+        pageNumber++;
       }
 
-      element.classList.add('pdf-export-mode');
+      // Añadir encabezado y pie de página a todas las páginas
+      const totalPages = pdf.internal.getNumberOfPages();
+      
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        
+        // Dibujar rectángulos blancos para ocultar el contenido que se desborda en los márgenes
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(0, 0, pdfWidth, margin, 'F'); // Margen superior
+        pdf.rect(0, pdfHeight - margin, pdfWidth, margin, 'F'); // Margen inferior
+        
+        pdf.setFontSize(9);
+        pdf.setTextColor(100, 100, 100);
+        
+        // Encabezado
+        let leftText = '';
+        if (showTeacher && teacherName) leftText += `Profesor: ${teacherName}`;
+        if (showTeacher && teacherName && showDepartment && department) leftText += ' | ';
+        if (showDepartment && department) leftText += `Dpto: ${department}`;
+        
+        let rightText = '';
+        if (showSubject) rightText += `${subject} ${gradeLevel ? `(${gradeLevel})` : ''}`;
+        
+        if (leftText) pdf.text(leftText, margin, margin - 10);
+        if (rightText) {
+          const rightTextWidth = pdf.getStringUnitWidth(rightText) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
+          pdf.text(rightText, pdfWidth - margin - rightTextWidth, margin - 10);
+        }
+        
+        // Pie de página
+        if (showPageNumbers) {
+          const footerText = `Página ${i} de ${totalPages} - Generado con EduPlanner AI`;
+          const footerTextWidth = pdf.getStringUnitWidth(footerText) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
+          pdf.text(footerText, pdfWidth - margin - footerTextWidth, pdfHeight - margin + 20);
+        } else {
+          const footerText = 'Generado con EduPlanner AI';
+          const footerTextWidth = pdf.getStringUnitWidth(footerText) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
+          pdf.text(footerText, pdfWidth - margin - footerTextWidth, pdfHeight - margin + 20);
+        }
+      }
 
-      const opt = {
-        margin:       [25, 10, 15, 10], 
-        filename:     `${docTitle.replace(/\s+/g, '_')}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { 
-          scale: 2, 
-          useCORS: true,
-          scrollY: 0,
-          scrollX: 0,
-          windowHeight: element.scrollHeight,
-          letterRendering: true
-        },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' },
-        pagebreak:    { mode: ['css', 'legacy'], before: 'h2' }
-      };
-
-      // @ts-ignore
-      window.html2pdf()
-        .from(element)
-        .set(opt)
-        .toPdf()
-        .get('pdf')
-        .then((pdf: any) => {
-          const totalPages = pdf.internal.getNumberOfPages();
-          const pageWidth = pdf.internal.pageSize.getWidth();
-          const pageHeight = pdf.internal.pageSize.getHeight();
-          
-          for (let i = 1; i <= totalPages; i++) {
-            pdf.setPage(i);
-            
-            // HEADER
-            pdf.setFontSize(8);
-            pdf.setTextColor(100, 116, 139);
-            pdf.setFont("helvetica", "bold");
-            
-            // Construcción dinámica del header izquierdo
-            let leftParts = [];
-            if (showTeacher && teacherName) leftParts.push(`Profesor: ${teacherName}`);
-            if (showDepartment && department) leftParts.push(`Dpto: ${department}`);
-            if (leftParts.length > 0) {
-              pdf.text(leftParts.join(" | "), 10, 10);
-            }
-            
-            // Construcción dinámica del header derecho
-            if (showSubject) {
-              const rightText = `${subject} (${gradeLevel})`;
-              const textWidth = pdf.getStringUnitWidth(rightText) * 8 / pdf.internal.scaleFactor;
-              pdf.text(rightText, pageWidth - 10 - textWidth, 10);
-            }
-            
-            // Línea separadora Header
-            if (leftParts.length > 0 || showSubject) {
-              pdf.setDrawColor(226, 232, 240);
-              pdf.line(10, 12, pageWidth - 10, 12);
-            }
-
-            // FOOTER
-            if (showPageNumbers) {
-              pdf.line(10, pageHeight - 12, pageWidth - 10, pageHeight - 12);
-              pdf.setFontSize(8);
-              const footerText = `Página ${i} de ${totalPages}`;
-              const footerWidth = pdf.getStringUnitWidth(footerText) * 8 / pdf.internal.scaleFactor;
-              pdf.text(footerText, pageWidth - 10 - footerWidth, pageHeight - 7);
-            }
-          }
-        })
-        .save()
-        .then(() => {
-          element.classList.remove('pdf-export-mode');
-          setIsGeneratingPDF(false);
-        })
-        .catch((err: any) => {
-          console.error("PDF Error:", err);
-          element.classList.remove('pdf-export-mode');
-          setIsGeneratingPDF(false);
-          alert("Error generando PDF.");
-        });
-    }, 600);
+      pdf.save(`${docTitle.replace(/\s+/g, '_')}.pdf`);
+    } catch (error) {
+      console.error("Error generando PDF:", error);
+      alert("Error generando PDF. Por favor, inténtelo de nuevo.");
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 animate-fade-in w-full">
+      {isGeneratingPDF && (
+        <div className="fixed inset-0 z-[99999] bg-slate-50/90 backdrop-blur-sm flex flex-col items-center justify-center print:hidden">
+          <div className="bg-white p-8 rounded-2xl shadow-2xl border border-indigo-100 flex flex-col items-center gap-4">
+            <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
+            <h3 className="font-bold text-slate-800 text-lg">Preparando documento para imprimir...</h3>
+            <p className="text-sm text-slate-500">Por favor, guarda como PDF en el diálogo de impresión.</p>
+          </div>
+        </div>
+      )}
       <div className="flex-1 space-y-4 min-w-0">
         <div className="print:hidden">
           <CurricularReference analysisData={analysisData} className="mb-6" />
@@ -506,7 +529,7 @@ const Editor: React.FC<EditorProps> = ({
         </div>
 
         {/* Contenedor del documento */}
-        <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden relative">
+        <div className={`bg-white rounded-xl shadow-lg border border-slate-200 ${isGeneratingPDF ? '' : 'overflow-hidden relative'}`}>
           {isRefining && (
             <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center animate-fade-in">
               <div className="bg-white p-8 rounded-2xl shadow-xl border border-indigo-100 flex flex-col items-center gap-4">
@@ -531,7 +554,7 @@ const Editor: React.FC<EditorProps> = ({
                ))}
             </div>
           ) : (
-            <div className={`markdown-body prose prose-slate max-w-none p-12 custom-scrollbar ${isGeneratingPDF ? '' : 'min-h-[75vh] overflow-y-auto'}`} ref={previewRef}>
+            <div className={`markdown-body prose prose-slate max-w-none p-12 custom-scrollbar ${isGeneratingPDF ? 'pdf-export-mode' : 'min-h-[75vh] overflow-y-auto'}`} ref={previewRef}>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
             </div>
           )}
