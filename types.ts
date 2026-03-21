@@ -2,6 +2,7 @@
 export enum AppStep {
   UPLOAD = 'UPLOAD',
   CONTEXT = 'CONTEXT',
+  PLANNING = 'PLANNING',
   SELECT_TYPE = 'SELECT_TYPE',
   GENERATING = 'GENERATING',
   EDITOR = 'EDITOR',
@@ -15,6 +16,12 @@ export enum DocType {
 export interface CurriculumAnalysis {
   subject: string;
   grade: string;
+  competencies: string[];
+  blocks: string[];
+}
+
+export interface SADetail {
+  idea: string;
   competencies: string[];
   blocks: string[];
 }
@@ -34,8 +41,9 @@ export interface TeacherContext {
   
   // SA Specifics
   generateFullCourse: boolean;
+  fullCourseIdeas: string; // Ideas for the full course
   numberOfSAs: number; 
-  saIdeas: string[]; // Ideas sugeridas para cada SdA
+  saDetails: SADetail[]; // Detailed ideas, competencies, and blocks for each SA
 }
 
 export interface GeneratedDocument {

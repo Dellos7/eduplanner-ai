@@ -113,11 +113,23 @@ export const generateEducationalDocument = async (
     if (context.generateFullCourse) {
       saCountText = "todas las necesarias para el curso completo (decide tú el número ideal basándote en la carga lectiva)";
       ideasPrompt = "\n\nIMPORTANTE: Ignora el número de SAs manual y genera una planificación completa anual.";
-    } else if (context.saIdeas.length > 0) {
+      if (context.fullCourseIdeas && context.fullCourseIdeas.trim()) {
+        ideasPrompt += `\nTen en cuenta estas ideas generales para el curso: ${context.fullCourseIdeas.trim()}\n`;
+      }
+    } else if (context.saDetails && context.saDetails.length > 0) {
       ideasPrompt = "\n\nIMPORTANTE: Ten en cuenta estas propuestas específicas del usuario para cada SdA:\n";
-      context.saIdeas.forEach((idea, idx) => {
-        if (idea.trim()) {
-          ideasPrompt += `- SdA número ${idx + 1}: ${idea.trim()}\n`;
+      context.saDetails.forEach((detail, idx) => {
+        if (detail.idea.trim() || detail.competencies.length > 0 || detail.blocks.length > 0) {
+          ideasPrompt += `- SdA número ${idx + 1}:\n`;
+          if (detail.idea.trim()) {
+            ideasPrompt += `  * Idea/Temática: ${detail.idea.trim()}\n`;
+          }
+          if (detail.competencies.length > 0) {
+            ideasPrompt += `  * Competencias Específicas: ${detail.competencies.join(', ')}\n`;
+          }
+          if (detail.blocks.length > 0) {
+            ideasPrompt += `  * Bloques de Saberes: ${detail.blocks.join(', ')}\n`;
+          }
         }
       });
     }

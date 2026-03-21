@@ -12,6 +12,7 @@ interface EditorProps {
   initialContent: string;
   docTitle: string;
   onRestart: () => void;
+  onBack: () => void;
   analysisData: CurriculumAnalysis | null;
   onRefine: (feedback: string) => Promise<string>;
   language?: string;
@@ -51,6 +52,7 @@ const Editor: React.FC<EditorProps> = ({
   initialContent, 
   docTitle, 
   onRestart, 
+  onBack,
   analysisData, 
   onRefine, 
   language = 'Castellano',
@@ -560,9 +562,14 @@ const Editor: React.FC<EditorProps> = ({
           )}
         </div>
 
-        <button onClick={onRestart} className="flex items-center gap-2 text-slate-400 hover:text-slate-600 transition-colors px-2 py-1 text-sm">
-          <ArrowLeft className="w-4 h-4" /> Volver al inicio y descartar cambios
-        </button>
+        <div className="flex justify-between items-center mt-4">
+          <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-slate-600 transition-colors px-2 py-1 text-sm">
+            <ArrowLeft className="w-4 h-4" /> Volver a Selección de Tipo
+          </button>
+          <button onClick={onRestart} className="flex items-center gap-2 text-slate-400 hover:text-slate-600 transition-colors px-2 py-1 text-sm">
+            <ArrowLeft className="w-4 h-4" /> Volver al inicio y descartar cambios
+          </button>
+        </div>
       </div>
 
       <aside className="w-full lg:w-96 shrink-0 print:hidden">

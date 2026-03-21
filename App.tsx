@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import FileUpload from './components/FileUpload';
 import ContextForm from './components/ContextForm';
+import PlanningForm from './components/PlanningForm';
 import DocTypeSelector from './components/DocTypeSelector';
 import Editor from './components/Editor';
 import { AppStep, DocType, TeacherContext, CurriculumAnalysis } from './types';
@@ -18,8 +19,12 @@ const initialContext: TeacherContext = {
   otherNeeds: '',
   methodologyPreference: ['Aprendizaje Basado en Proyectos (ABP)'],
   generateFullCourse: false,
+  fullCourseIdeas: '',
   numberOfSAs: 2,
-  saIdeas: ['', ''],
+  saDetails: [
+    { idea: '', competencies: [], blocks: [] },
+    { idea: '', competencies: [], blocks: [] }
+  ],
 };
 
 export default function App() {
@@ -74,6 +79,11 @@ export default function App() {
   };
 
   const handleContextSubmit = (data: TeacherContext) => {
+    setContext(data);
+    setStep(AppStep.PLANNING);
+  };
+
+  const handlePlanningSubmit = (data: TeacherContext) => {
     setContext(data);
     setStep(AppStep.SELECT_TYPE);
   };
@@ -179,13 +189,18 @@ export default function App() {
             <span className="hidden sm:inline">Contexto</span>
           </div>
           <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
+          <div className={`flex flex-col items-center gap-1 ${step === AppStep.PLANNING ? 'text-indigo-600' : 'text-slate-300'}`}>
+            <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.PLANNING ? 'border-indigo-600' : 'border-slate-200'}`}>3</span>
+            <span className="hidden sm:inline">Planificación</span>
+          </div>
+          <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
           <div className={`flex flex-col items-center gap-1 ${step === AppStep.SELECT_TYPE ? 'text-indigo-600' : 'text-slate-300'}`}>
-            <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.SELECT_TYPE ? 'border-indigo-600' : 'border-slate-200'}`}>3</span>
+            <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.SELECT_TYPE ? 'border-indigo-600' : 'border-slate-200'}`}>4</span>
             <span className="hidden sm:inline">Tipo</span>
           </div>
           <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
           <div className={`flex flex-col items-center gap-1 ${step === AppStep.EDITOR ? 'text-indigo-600' : 'text-slate-300'}`}>
-            <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.EDITOR ? 'border-indigo-600' : 'border-slate-200'}`}>4</span>
+            <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.EDITOR ? 'border-indigo-600' : 'border-slate-200'}`}>5</span>
             <span className="hidden sm:inline">Resultado</span>
           </div>
         </div>
@@ -201,10 +216,24 @@ export default function App() {
                   initialData={context} 
                   analysisData={analysisData} 
                   onReAnalyze={() => performAnalysis(pdfBase64)} 
+                  onBack={() => setStep(AppStep.UPLOAD)}
                   onSubmit={handleContextSubmit} 
                 />
               )}
-              {step === AppStep.SELECT_TYPE && <DocTypeSelector onSelect={handleDocTypeSelect} />}
+              {step === AppStep.PLANNING && (
+                <PlanningForm
+                  initialData={context}
+                  analysisData={analysisData}
+                  onBack={() => setStep(AppStep.CONTEXT)}
+                  onSubmit={handlePlanningSubmit}
+                />
+              )}
+              {step === AppStep.SELECT_TYPE && (
+                <DocTypeSelector 
+                  onSelect={handleDocTypeSelect} 
+                  onBack={() => setStep(AppStep.PLANNING)}
+                />
+              )}
               {step === AppStep.GENERATING && (
                 <div className="py-20 flex flex-col items-center text-center bg-white rounded-2xl border border-slate-200 shadow-sm animate-fade-in">
                   <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
@@ -219,6 +248,7 @@ export default function App() {
                   initialContent={resultContent} 
                   docTitle={currentDocType === DocType.PROPUESTA ? 'Propuesta Pedagógica' : 'Situaciones de Aprendizaje'} 
                   onRestart={handleRestart} 
+                  onBack={() => setStep(AppStep.SELECT_TYPE)}
                   analysisData={analysisData} 
                   onRefine={handleRefine}
                   language={context.language}

@@ -1,12 +1,13 @@
 import React from 'react';
 import { DocType } from '../types';
-import { BookMarked, Lightbulb } from 'lucide-react';
+import { BookMarked, Lightbulb, ArrowLeft } from 'lucide-react';
 
 interface DocTypeSelectorProps {
   onSelect: (type: DocType) => void;
+  onBack: () => void;
 }
 
-const DocTypeSelector: React.FC<DocTypeSelectorProps> = ({ onSelect }) => {
+const DocTypeSelector: React.FC<DocTypeSelectorProps> = ({ onSelect, onBack }) => {
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div className="text-center mb-10">
@@ -51,6 +52,16 @@ const DocTypeSelector: React.FC<DocTypeSelectorProps> = ({ onSelect }) => {
           <p className="text-slate-600 leading-relaxed">
             Diseña unidades didácticas concretas (SdA). Incluye justificación, reto, secuencia de actividades, productos finales e instrumentos de evaluación específicos.
           </p>
+        </button>
+      </div>
+
+      <div className="flex justify-center mt-8">
+        <button
+          onClick={onBack}
+          className="px-6 py-3 text-slate-600 hover:text-slate-900 font-medium transition-colors flex items-center gap-2"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          Volver a Planificación
         </button>
       </div>
     </div>

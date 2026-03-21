@@ -1,13 +1,14 @@
 
 import React, { useState } from 'react';
 import { TeacherContext, CurriculumAnalysis } from '../types';
-import { ArrowRight, CheckSquare, Square, Clock, BookOpen, Users, Globe, Briefcase, AlertCircle, RefreshCw, GraduationCap, Lightbulb } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CheckSquare, Square, Clock, BookOpen, Users, Globe, Briefcase, AlertCircle, RefreshCw, GraduationCap, Lightbulb } from 'lucide-react';
 import CurricularReference from './CurricularReference';
 
 interface ContextFormProps {
   initialData: TeacherContext;
   analysisData: CurriculumAnalysis | null;
   onReAnalyze: () => void;
+  onBack: () => void;
   onSubmit: (data: TeacherContext) => void;
 }
 
@@ -42,7 +43,7 @@ const GRADE_LEVELS = [
   "2º Bachiller"
 ];
 
-const ContextForm: React.FC<ContextFormProps> = ({ initialData, analysisData, onReAnalyze, onSubmit }) => {
+const ContextForm: React.FC<ContextFormProps> = ({ initialData, analysisData, onReAnalyze, onBack, onSubmit }) => {
   const [formData, setFormData] = useState<TeacherContext>(initialData);
 
   const isAnalysisIncomplete = !analysisData || 
@@ -290,82 +291,20 @@ const ContextForm: React.FC<ContextFormProps> = ({ initialData, analysisData, on
           />
         </div>
 
-        <hr className="border-slate-100" />
-
-        {/* Section: Settings SAs */}
-        <div className="space-y-4">
-           <label className="text-sm font-semibold text-slate-700 block">Planificación de Situaciones de Aprendizaje</label>
-           
-           <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4 shadow-inner">
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input 
-                  type="checkbox"
-                  name="generateFullCourse"
-                  checked={formData.generateFullCourse}
-                  onChange={handleCheckboxChange}
-                  className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300 transition-all"
-                />
-                <span className="text-slate-800 font-bold group-hover:text-indigo-600 transition-colors">Generar programación para todo el curso</span>
-              </label>
-              
-              <div className={`transition-all duration-300 space-y-6 ${formData.generateFullCourse ? 'opacity-40 pointer-events-none grayscale blur-[1px]' : 'opacity-100'}`}>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                  <div>
-                    <label className="text-sm font-bold text-slate-700 block">Número de SAs a detallar</label>
-                    <p className="text-xs text-slate-400">Cada SA tendrá su propia ficha técnica.</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      name="numberOfSAs"
-                      min="1"
-                      max="15"
-                      disabled={formData.generateFullCourse}
-                      value={formData.numberOfSAs}
-                      onChange={handleChange}
-                      className="w-20 px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-center text-indigo-600 disabled:bg-slate-100"
-                    />
-                  </div>
-                </div>
-
-                {/* Ideas dinámicas para cada SA */}
-                <div className="space-y-4 animate-fade-in-down">
-                  <div className="flex items-center gap-2 text-indigo-800 font-bold text-sm bg-indigo-50/50 p-2 rounded-lg w-fit">
-                    <Lightbulb className="w-4 h-4 text-amber-500" />
-                    Propuestas Temáticas (Opcional)
-                  </div>
-                  <p className="text-xs text-slate-500">Si dejas estos campos vacíos, la IA propondrá temas creativos basados en el currículo.</p>
-                  <div className="grid grid-cols-1 gap-4">
-                    {Array.from({ length: formData.numberOfSAs }).map((_, idx) => (
-                      <div key={idx} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2 group hover:border-indigo-200 transition-colors">
-                        <div className="flex justify-between items-center">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                            Situación de Aprendizaje {idx + 1}
-                          </label>
-                          <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-mono">SA#{idx+1}</span>
-                        </div>
-                        <textarea
-                          value={formData.saIdeas[idx] || ''}
-                          disabled={formData.generateFullCourse}
-                          onChange={(e) => handleIdeaChange(idx, e.target.value)}
-                          placeholder="Ej: Proyecto sobre energías renovables usando Arduino..."
-                          className="w-full px-4 py-2.5 border border-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none text-sm bg-slate-50/30 transition-all disabled:bg-slate-100"
-                          rows={2}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-           </div>
-        </div>
-
-        <div className="pt-4 flex justify-end">
+        <div className="pt-4 flex justify-between items-center">
+          <button
+            type="button"
+            onClick={onBack}
+            className="px-6 py-3 text-slate-600 hover:text-slate-900 font-medium transition-colors flex items-center gap-2"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Atrás
+          </button>
           <button
             type="submit"
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-10 rounded-xl shadow-lg hover:shadow-indigo-200 transition-all flex items-center gap-3 active:scale-[0.98]"
           >
-            Continuar al Siguiente Paso
+            Continuar a Planificación
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>
