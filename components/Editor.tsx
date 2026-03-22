@@ -368,7 +368,7 @@ const Editor: React.FC<EditorProps> = ({
       }
 
       // Añadir encabezado y pie de página a todas las páginas
-      const totalPages = pdf.internal.getNumberOfPages();
+      const totalPages = pdf.getNumberOfPages();
       
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
@@ -392,18 +392,18 @@ const Editor: React.FC<EditorProps> = ({
         
         if (leftText) pdf.text(leftText, margin, margin - 10);
         if (rightText) {
-          const rightTextWidth = pdf.getStringUnitWidth(rightText) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
+          const rightTextWidth = pdf.getStringUnitWidth(rightText) * pdf.getFontSize() / (pdf as any).internal.scaleFactor;
           pdf.text(rightText, pdfWidth - margin - rightTextWidth, margin - 10);
         }
         
         // Pie de página
         if (showPageNumbers) {
           const footerText = `Página ${i} de ${totalPages} - Generado con EduPlanner AI`;
-          const footerTextWidth = pdf.getStringUnitWidth(footerText) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
+          const footerTextWidth = pdf.getStringUnitWidth(footerText) * pdf.getFontSize() / (pdf as any).internal.scaleFactor;
           pdf.text(footerText, pdfWidth - margin - footerTextWidth, pdfHeight - margin + 20);
         } else {
           const footerText = 'Generado con EduPlanner AI';
-          const footerTextWidth = pdf.getStringUnitWidth(footerText) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
+          const footerTextWidth = pdf.getStringUnitWidth(footerText) * pdf.getFontSize() / (pdf as any).internal.scaleFactor;
           pdf.text(footerText, pdfWidth - margin - footerTextWidth, pdfHeight - margin + 20);
         }
       }

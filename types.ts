@@ -6,6 +6,7 @@ export enum AppStep {
   SELECT_TYPE = 'SELECT_TYPE',
   GENERATING = 'GENERATING',
   EDITOR = 'EDITOR',
+  HISTORY = 'HISTORY',
 }
 
 export enum DocType {
@@ -50,4 +51,14 @@ export interface GeneratedDocument {
   title: string;
   content: string;
   type: DocType;
+}
+
+export interface HistoryItem {
+  id: string;
+  title: string;
+  content: string;
+  type: DocType;
+  date: string;
+  subject: string;
+  gradeLevel: string;
 }

@@ -6,9 +6,11 @@ import ContextForm from './components/ContextForm';
 import PlanningForm from './components/PlanningForm';
 import DocTypeSelector from './components/DocTypeSelector';
 import Editor from './components/Editor';
-import { AppStep, DocType, TeacherContext, CurriculumAnalysis } from './types';
+import History from './components/History';
+import { AppStep, DocType, TeacherContext, CurriculumAnalysis, HistoryItem } from './types';
 import { generateEducationalDocument, analyzePdfStructure, refineDocument } from './services/geminiService';
-import { Loader2, AlertCircle, FileSearch, Key } from 'lucide-react';
+import { saveToHistory } from './services/historyService';
+import { Loader2, AlertCircle, FileSearch, Key, Clock } from 'lucide-react';
 
 const initialContext: TeacherContext = {
   subject: '',
@@ -96,6 +98,16 @@ export default function App() {
     try {
       const content = await generateEducationalDocument(pdfBase64, context, type);
       setResultContent(content);
+      
+      // Save to history
+      saveToHistory({
+        title: type === DocType.PROPUESTA ? 'Propuesta Pedagógica' : 'Situaciones de Aprendizaje',
+        content,
+        type,
+        subject: context.subject,
+        gradeLevel: context.gradeLevel
+      });
+
       setStep(AppStep.EDITOR);
     } catch (err: any) {
       setError(err.message || "Error al generar el documento.");
@@ -126,6 +138,17 @@ export default function App() {
     setError(null);
   };
 
+  const handleHistorySelect = (item: HistoryItem) => {
+    setResultContent(item.content);
+    setCurrentDocType(item.type);
+    setContext(prev => ({
+      ...prev,
+      subject: item.subject,
+      gradeLevel: item.gradeLevel
+    }));
+    setStep(AppStep.EDITOR);
+  };
+
   const AnalysisLoadingView = (
     <div className="py-20 flex flex-col items-center text-center bg-white rounded-2xl border border-slate-200 shadow-sm animate-fade-in">
       <div className="relative mb-6">
@@ -145,8 +168,24 @@ export default function App() {
     </div>
   );
 
+  const stepOrder = [AppStep.UPLOAD, AppStep.CONTEXT, AppStep.PLANNING, AppStep.SELECT_TYPE, AppStep.EDITOR];
+  const currentStepIndex = stepOrder.indexOf(step);
+
+  const canNavigateTo = (targetStep: AppStep) => {
+    const targetIndex = stepOrder.indexOf(targetStep);
+    // Can navigate back to any previous step, or stay on current
+    return targetIndex < currentStepIndex;
+  };
+
+  const handleStepClick = (targetStep: AppStep) => {
+    if (canNavigateTo(targetStep)) {
+      setStep(targetStep);
+      setError(null);
+    }
+  };
+
   return (
-    <Layout>
+    <Layout onHome={handleRestart}>
       <div className="w-full mx-auto">
         {!hasApiKey && step === AppStep.UPLOAD && (
           <div className="max-w-4xl mx-auto mb-8 bg-rose-50 border-2 border-rose-200 p-6 rounded-2xl flex flex-col items-center gap-4 text-rose-800 animate-fade-in">
@@ -178,39 +217,77 @@ export default function App() {
           </div>
         )}
 
-        <div className="max-w-4xl mx-auto mb-8 flex items-center justify-center gap-4 text-sm font-bold print:hidden">
-          <div className={`flex flex-col items-center gap-1 ${step === AppStep.UPLOAD ? 'text-indigo-600' : 'text-slate-300'}`}>
-            <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.UPLOAD ? 'border-indigo-600' : 'border-slate-200'}`}>1</span>
-            <span className="hidden sm:inline">Subir</span>
+        {step !== AppStep.HISTORY && (
+          <div className="max-w-4xl mx-auto mb-8 flex items-center justify-center gap-4 text-sm font-bold print:hidden">
+            <button 
+              onClick={() => handleStepClick(AppStep.UPLOAD)}
+              disabled={!canNavigateTo(AppStep.UPLOAD)}
+              className={`flex flex-col items-center gap-1 transition-all ${step === AppStep.UPLOAD ? 'text-indigo-600' : canNavigateTo(AppStep.UPLOAD) ? 'text-slate-600 hover:text-indigo-400' : 'text-slate-300 cursor-default'}`}
+            >
+              <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.UPLOAD ? 'border-indigo-600' : canNavigateTo(AppStep.UPLOAD) ? 'border-slate-400' : 'border-slate-200'}`}>1</span>
+              <span className="hidden sm:inline">Subir</span>
+            </button>
+            <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
+            <button 
+              onClick={() => handleStepClick(AppStep.CONTEXT)}
+              disabled={!canNavigateTo(AppStep.CONTEXT)}
+              className={`flex flex-col items-center gap-1 transition-all ${step === AppStep.CONTEXT ? 'text-indigo-600' : canNavigateTo(AppStep.CONTEXT) ? 'text-slate-600 hover:text-indigo-400' : 'text-slate-300 cursor-default'}`}
+            >
+              <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.CONTEXT ? 'border-indigo-600' : canNavigateTo(AppStep.CONTEXT) ? 'border-slate-400' : 'border-slate-200'}`}>2</span>
+              <span className="hidden sm:inline">Contexto</span>
+            </button>
+            <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
+            <button 
+              onClick={() => handleStepClick(AppStep.PLANNING)}
+              disabled={!canNavigateTo(AppStep.PLANNING)}
+              className={`flex flex-col items-center gap-1 transition-all ${step === AppStep.PLANNING ? 'text-indigo-600' : canNavigateTo(AppStep.PLANNING) ? 'text-slate-600 hover:text-indigo-400' : 'text-slate-300 cursor-default'}`}
+            >
+              <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.PLANNING ? 'border-indigo-600' : canNavigateTo(AppStep.PLANNING) ? 'border-slate-400' : 'border-slate-200'}`}>3</span>
+              <span className="hidden sm:inline">Planificación</span>
+            </button>
+            <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
+            <button 
+              onClick={() => handleStepClick(AppStep.SELECT_TYPE)}
+              disabled={!canNavigateTo(AppStep.SELECT_TYPE)}
+              className={`flex flex-col items-center gap-1 transition-all ${step === AppStep.SELECT_TYPE ? 'text-indigo-600' : canNavigateTo(AppStep.SELECT_TYPE) ? 'text-slate-600 hover:text-indigo-400' : 'text-slate-300 cursor-default'}`}
+            >
+              <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.SELECT_TYPE ? 'border-indigo-600' : canNavigateTo(AppStep.SELECT_TYPE) ? 'border-slate-400' : 'border-slate-200'}`}>4</span>
+              <span className="hidden sm:inline">Tipo</span>
+            </button>
+            <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
+            <div className={`flex flex-col items-center gap-1 ${step === AppStep.EDITOR ? 'text-indigo-600' : 'text-slate-300'}`}>
+              <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.EDITOR ? 'border-indigo-600' : 'border-slate-200'}`}>5</span>
+              <span className="hidden sm:inline">Resultado</span>
+            </div>
           </div>
-          <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
-          <div className={`flex flex-col items-center gap-1 ${step === AppStep.CONTEXT ? 'text-indigo-600' : 'text-slate-300'}`}>
-            <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.CONTEXT ? 'border-indigo-600' : 'border-slate-200'}`}>2</span>
-            <span className="hidden sm:inline">Contexto</span>
-          </div>
-          <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
-          <div className={`flex flex-col items-center gap-1 ${step === AppStep.PLANNING ? 'text-indigo-600' : 'text-slate-300'}`}>
-            <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.PLANNING ? 'border-indigo-600' : 'border-slate-200'}`}>3</span>
-            <span className="hidden sm:inline">Planificación</span>
-          </div>
-          <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
-          <div className={`flex flex-col items-center gap-1 ${step === AppStep.SELECT_TYPE ? 'text-indigo-600' : 'text-slate-300'}`}>
-            <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.SELECT_TYPE ? 'border-indigo-600' : 'border-slate-200'}`}>4</span>
-            <span className="hidden sm:inline">Tipo</span>
-          </div>
-          <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
-          <div className={`flex flex-col items-center gap-1 ${step === AppStep.EDITOR ? 'text-indigo-600' : 'text-slate-300'}`}>
-            <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.EDITOR ? 'border-indigo-600' : 'border-slate-200'}`}>5</span>
-            <span className="hidden sm:inline">Resultado</span>
-          </div>
-        </div>
+        )}
 
         <div className={step === AppStep.EDITOR ? 'w-full' : 'max-w-4xl mx-auto'}>
           {isAnalyzing ? (
             AnalysisLoadingView
           ) : (
             <>
-              {step === AppStep.UPLOAD && <FileUpload onFileSelect={handleFileSelect} disabled={!hasApiKey} />}
+              {step === AppStep.UPLOAD && (
+                <div className="space-y-8">
+                  <FileUpload onFileSelect={handleFileSelect} disabled={!hasApiKey} />
+                  
+                  <div className="flex justify-center">
+                    <button
+                      onClick={() => setStep(AppStep.HISTORY)}
+                      className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-md transition-all font-medium"
+                    >
+                      <Clock className="w-5 h-5" />
+                      Ver historial de documentos
+                    </button>
+                  </div>
+                </div>
+              )}
+              {step === AppStep.HISTORY && (
+                <History 
+                  onSelect={handleHistorySelect} 
+                  onBack={() => setStep(AppStep.UPLOAD)} 
+                />
+              )}
               {step === AppStep.CONTEXT && (
                 <ContextForm 
                   initialData={context} 

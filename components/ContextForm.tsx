@@ -53,31 +53,7 @@ const ContextForm: React.FC<ContextFormProps> = ({ initialData, analysisData, on
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
-    if (name === 'numberOfSAs') {
-      const num = parseInt(value) || 1;
-      const clampedNum = Math.min(Math.max(num, 1), 15);
-      
-      setFormData(prev => {
-        const newIdeas = [...prev.saIdeas];
-        if (newIdeas.length < clampedNum) {
-          while (newIdeas.length < clampedNum) newIdeas.push('');
-        } else {
-          newIdeas.length = clampedNum;
-        }
-        return { ...prev, numberOfSAs: clampedNum, saIdeas: newIdeas };
-      });
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleIdeaChange = (index: number, value: string) => {
-    setFormData(prev => {
-      const newIdeas = [...prev.saIdeas];
-      newIdeas[index] = value;
-      return { ...prev, saIdeas: newIdeas };
-    });
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
