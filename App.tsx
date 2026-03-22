@@ -116,30 +116,37 @@ export default function App() {
     }
   };
 
-  const handleRefine = async (feedback: string): Promise<string> => {
+  const handleRefine = React.useCallback(async (feedback: string, currentContent: string): Promise<string> => {
+    console.log('handleRefine called with feedback:', feedback);
     if (!currentDocType) throw new Error("Tipo de documento no definido.");
     
     const newContent = await refineDocument(
       pdfBase64,
       context,
       currentDocType,
-      resultContent,
+      currentContent,
       feedback
     );
     
     setResultContent(newContent);
     
     // Save refined version to history
-    saveToHistory({
-      title: `${currentDocType === DocType.PROPUESTA ? 'Propuesta Pedagógica' : 'Situaciones de Aprendizaje'} (Refinado)`,
-      content: newContent,
-      type: currentDocType,
-      subject: context.subject,
-      gradeLevel: context.gradeLevel
-    });
+    try {
+      const timeStr = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      const historyItem = saveToHistory({
+        title: `${currentDocType === DocType.PROPUESTA ? 'Propuesta Pedagógica' : 'Situaciones de Aprendizaje'} (Refinado ${timeStr})`,
+        content: newContent,
+        type: currentDocType,
+        subject: context.subject,
+        gradeLevel: context.gradeLevel
+      });
+      console.log('Refined version saved to history:', historyItem);
+    } catch (e) {
+      console.error('Error saving refined version to history', e);
+    }
     
     return newContent;
-  };
+  }, [currentDocType, pdfBase64, context]);
 
   const handleRestart = () => {
     setStep(AppStep.UPLOAD);

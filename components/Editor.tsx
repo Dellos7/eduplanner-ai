@@ -14,7 +14,7 @@ interface EditorProps {
   onRestart: () => void;
   onBack: () => void;
   analysisData: CurriculumAnalysis | null;
-  onRefine: (feedback: string) => Promise<string>;
+  onRefine: (feedback: string, currentContent: string) => Promise<string>;
   language?: string;
   gradeLevel?: string;
   subject?: string;
@@ -164,6 +164,16 @@ const Editor: React.FC<EditorProps> = ({
     setMode('preview');
   };
 
+  const getCurrentFullContent = () => {
+    if (mode === 'edit') {
+      return sections.map(s => {
+        if (s.level === 0) return s.content;
+        return `${'#'.repeat(s.level)} ${s.title}\n\n${s.content}`;
+      }).join('\n\n');
+    }
+    return content;
+  };
+
   const handleRefineSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || isRefining) return;
@@ -171,7 +181,8 @@ const Editor: React.FC<EditorProps> = ({
     const feedback = chatInput;
     setChatInput('');
     try {
-      const newContent = await onRefine(feedback);
+      const currentFullContent = getCurrentFullContent();
+      const newContent = await onRefine(feedback, currentFullContent);
       setContent(newContent);
       setMode('preview');
     } catch (err) {

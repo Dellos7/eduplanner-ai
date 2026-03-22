@@ -12,6 +12,7 @@ export const saveToHistory = (item: Omit<HistoryItem, 'id' | 'date'>): HistoryIt
   
   const updatedHistory = [newItem, ...history];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedHistory));
+  console.log('Document saved to history:', newItem.title);
   return newItem;
 };
 
