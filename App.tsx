@@ -41,11 +41,12 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(true);
 
+  const checkKey = () => {
+    const key = localStorage.getItem('GEMINI_API_KEY') || process.env.API_KEY;
+    setHasApiKey(!!key);
+  };
+
   useEffect(() => {
-    const checkKey = () => {
-      const key = localStorage.getItem('GEMINI_API_KEY') || process.env.API_KEY;
-      setHasApiKey(!!key);
-    };
     checkKey();
     window.addEventListener('storage', checkKey);
     return () => window.removeEventListener('storage', checkKey);
@@ -185,7 +186,7 @@ export default function App() {
   };
 
   return (
-    <Layout onHome={handleRestart}>
+    <Layout onHome={handleRestart} onSettingsSave={checkKey}>
       <div className="w-full mx-auto">
         {!hasApiKey && step === AppStep.UPLOAD && (
           <div className="max-w-4xl mx-auto mb-8 bg-rose-50 border-2 border-rose-200 p-6 rounded-2xl flex flex-col items-center gap-4 text-rose-800 animate-fade-in">

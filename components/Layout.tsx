@@ -6,9 +6,10 @@ import SettingsModal from './SettingsModal';
 interface LayoutProps {
   children: React.ReactNode;
   onHome?: () => void;
+  onSettingsSave?: () => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, onHome }) => {
+const Layout: React.FC<LayoutProps> = ({ children, onHome, onSettingsSave }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (
@@ -47,7 +48,11 @@ const Layout: React.FC<LayoutProps> = ({ children, onHome }) => {
         </div>
       </header>
 
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+        onSave={onSettingsSave}
+      />
 
       <main className="flex-1 w-full max-w-[98%] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}

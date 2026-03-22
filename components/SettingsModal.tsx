@@ -5,9 +5,10 @@ import { X, Key, CheckCircle, AlertCircle, ExternalLink, StepForward, LogIn, Mou
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSave?: () => void;
 }
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
+const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }) => {
   const [apiKey, setApiKey] = useState('');
   const [isSaved, setIsSaved] = useState(false);
 
@@ -23,6 +24,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       localStorage.removeItem('GEMINI_API_KEY');
     }
     setIsSaved(true);
+    if (onSave) onSave();
     setTimeout(() => {
       setIsSaved(false);
       onClose();
