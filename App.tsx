@@ -128,6 +128,16 @@ export default function App() {
     );
     
     setResultContent(newContent);
+    
+    // Save refined version to history
+    saveToHistory({
+      title: `${currentDocType === DocType.PROPUESTA ? 'Propuesta Pedagógica' : 'Situaciones de Aprendizaje'} (Refinado)`,
+      content: newContent,
+      type: currentDocType,
+      subject: context.subject,
+      gradeLevel: context.gradeLevel
+    });
+    
     return newContent;
   };
 
