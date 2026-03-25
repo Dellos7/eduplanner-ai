@@ -99,6 +99,7 @@ export const generateEducationalDocument = async (
       # PROPUESTA PEDAGÓGICA: ${context.subject}
       ## 1. Concreción Curricular
       Detalla competencias específicas y criterios del PDF vinculados a ${context.gradeLevel}.
+      IMPORTANTE: Escribe el texto COMPLETO de las Competencias Específicas, sin usar puntos suspensivos ni resumirlas. Los Criterios de Evaluación deben indicarse ÚNICAMENTE con su numeración (ej. 3.1, 3.2...) y deben aparecer justo debajo de la Competencia Específica a la que hacen referencia.
       ## 2. Metodología y Estrategias
       Basadas en: ${methodologiesString}.
       ## 3. Evaluación
@@ -136,16 +137,35 @@ export const generateEducationalDocument = async (
 
     const orgHeader = getOrganizationHeaders(context.language);
 
+    let programacionTitle = "Programación de Aula";
+    if (context.language.includes('Catalán') || context.language.includes('Valenciano')) {
+      programacionTitle = "Programació d'Aula";
+    } else if (context.language.includes('Inglés')) {
+      programacionTitle = "Classroom Programming";
+    }
+
     prompt = `
       ${langInstruction}
       Genera ${saCountText} **SITUACIONES DE APRENDIZAJE** detalladas para ${context.subject} (${context.gradeLevel}).
       ${ideasPrompt}
       
       REQUISITOS OBLIGATORIOS:
-      1. Empieza directamente con la primera situación. No saludes.
-      2. **NUMERA SIEMPRE** las situaciones en el título (ej: 1, 2, 3...).
+      1. Empieza el documento con un único encabezado principal (h1): # ${programacionTitle}
+      2. **NUMERA SIEMPRE** las situaciones en el título (ej: 1, 2, 3...) y usa SIEMPRE encabezado de nivel 2 (h2) para cada una.
+      3. Escribe el texto COMPLETO de las Competencias Específicas, sin usar puntos suspensivos ni resumirlas.
+      4. Los Criterios de Evaluación deben indicarse ÚNICAMENTE con su numeración (ej. 3.1, 3.2...) y deben aparecer justo debajo de la Competencia Específica a la que hacen referencia.
+      5. En la columna "Medidas de respuesta educativa para la inclusión" de la tabla de Organización, debes especificar medidas CONCRETAS que ayuden a las siguientes problemáticas del aula: ${needsString}.
+      6. Los Saberes Básicos deben indicar siempre explícitamente a qué Bloque Curricular pertenecen.
+      7. Debes incluir una tabla resumen al principio y una matriz de competencias al final. Traduce los títulos de estas tablas al idioma solicitado.
       
-      ESTRUCTURA EXACTA PARA CADA SITUACIÓN DE APRENDIZAJE:
+      ESTRUCTURA EXACTA DEL DOCUMENTO:
+
+      # ${programacionTitle}
+
+      ## Resumen de Situaciones de Aprendizaje
+      Genera una tabla con 3 columnas: "Situación de Aprendizaje" (solo el nombre), "Número de Sesiones Totales" y "Trimestre" (1º, 2º o 3º, distribuyéndolas equitativamente a lo largo del curso).
+
+      [A continuación, repite la siguiente estructura para CADA situación de aprendizaje:]
 
       ## SITUACIÓN DE APRENDIZAJE {NÚMERO}: [Título Sugerente]
 
@@ -161,21 +181,27 @@ export const generateEducationalDocument = async (
       [Vinculación con ODS]
 
       **Competencias Específicas y Criterios de Evaluación vinculados:**
-      [Cita competencias del PDF]
+      - **Competencia Específica [X]:** [Texto COMPLETO de la competencia]
+        - Criterios de evaluación: [X.1], [X.2]...
 
       **Saberes Básicos:**
-      [Saberes del PDF]
+      - **Bloque [Nombre del Bloque Curricular]:** [Saberes del PDF]
 
       **Organización:**
       Genera una tabla con al menos 3 filas (Actividad 1, Actividad 2, Actividad 3).
       ${orgHeader}
       | :--- | :--- | :--- | :--- | :--- |
-      | **Actividad 1:** [Nombre] | [Espacio] | [Tiempo] | [Recursos] | [Medidas] |
-      | **Actividad 2:** [Nombre] | [Espacio] | [Tiempo] | [Recursos] | [Medidas] |
-      | **Actividad 3:** [Nombre] | [Espacio] | [Tiempo] | [Recursos] | [Medidas] |
+      | **Actividad 1:** [Nombre] | [Espacio] | [Tiempo] | [Recursos] | [Medidas concretas para: ${needsString}] |
+      | **Actividad 2:** [Nombre] | [Espacio] | [Tiempo] | [Recursos] | [Medidas concretas para: ${needsString}] |
+      | **Actividad 3:** [Nombre] | [Espacio] | [Tiempo] | [Recursos] | [Medidas concretas para: ${needsString}] |
 
       **Instrumentos de recogida de información:**
       [Lista de instrumentos]
+
+      [Al final del documento, tras la última situación de aprendizaje, incluye obligatoriamente la siguiente sección:]
+
+      ## Matriz de Competencias y Criterios vs Situaciones de Aprendizaje
+      Genera una tabla de doble entrada. En las filas, pon las Competencias Específicas divididas en sus Criterios de Evaluación correspondientes. En las columnas, pon las Situaciones de Aprendizaje generadas (SdA 1, SdA 2...). Las celdas deben contener un check (✓) indicando en qué situación de aprendizaje se ha tenido en cuenta cada competencia y criterio.
     `;
   }
 
