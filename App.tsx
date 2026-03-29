@@ -12,9 +12,22 @@ import { generateEducationalDocument, analyzePdfStructure, refineDocument } from
 import { saveToHistory } from './services/historyService';
 import { Loader2, AlertCircle, FileSearch, Key, Clock } from 'lucide-react';
 
+const getCurrentAcademicYear = () => {
+  const now = new Date();
+  const month = now.getMonth(); // 0-11
+  const year = now.getFullYear();
+  
+  if (month >= 6) { // July to December
+    return `${year}-${(year + 1).toString().slice(-2)}`;
+  } else { // January to June
+    return `${year - 1}-${year.toString().slice(-2)}`;
+  }
+};
+
 const initialContext: TeacherContext = {
   subject: '',
   gradeLevel: '',
+  academicYear: getCurrentAcademicYear(),
   weeklyHours: 3,
   language: 'Castellano',
   selectedNeeds: [],
@@ -24,8 +37,8 @@ const initialContext: TeacherContext = {
   fullCourseIdeas: '',
   numberOfSAs: 2,
   saDetails: [
-    { idea: '', competencies: [], blocks: [] },
-    { idea: '', competencies: [], blocks: [] }
+    { idea: '', sessions: '', competencies: [], blocks: [] },
+    { idea: '', sessions: '', competencies: [], blocks: [] }
   ],
 };
 

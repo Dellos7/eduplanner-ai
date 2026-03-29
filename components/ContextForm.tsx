@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { TeacherContext, CurriculumAnalysis } from '../types';
-import { ArrowRight, ArrowLeft, CheckSquare, Square, Clock, BookOpen, Users, Globe, Briefcase, AlertCircle, RefreshCw, GraduationCap, Lightbulb } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CheckSquare, Square, Clock, BookOpen, Users, Globe, Briefcase, AlertCircle, RefreshCw, GraduationCap, Lightbulb, Calendar } from 'lucide-react';
 import CurricularReference from './CurricularReference';
 
 interface ContextFormProps {
@@ -127,18 +127,35 @@ const ContextForm: React.FC<ContextFormProps> = ({ initialData, analysisData, on
           <p className="text-slate-500 mt-1">Personaliza el curso y las necesidades del grupo para una IA más precisa.</p>
         </div>
 
-        {/* Row 1: Subject (Department removed) */}
-        <div className="space-y-2">
-          <label className="text-sm font-semibold text-slate-700">Asignatura / Materia</label>
-          <input
-            type="text"
-            name="subject"
-            required
-            value={formData.subject}
-            onChange={handleChange}
-            placeholder="Ej: Biología y Geología"
-            className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-          />
+        {/* Row 1: Subject and Academic Year */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700">Asignatura / Materia</label>
+            <input
+              type="text"
+              name="subject"
+              required
+              value={formData.subject}
+              onChange={handleChange}
+              placeholder="Ej: Biología y Geología"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-indigo-500" />
+              Curso Escolar
+            </label>
+            <input
+              type="text"
+              name="academicYear"
+              required
+              value={formData.academicYear}
+              onChange={handleChange}
+              placeholder="Ej: 2025-26"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+            />
+          </div>
         </div>
 
         {/* Row 2: Level, Hours & Language */}

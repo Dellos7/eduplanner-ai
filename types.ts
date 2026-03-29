@@ -23,6 +23,7 @@ export interface CurriculumAnalysis {
 
 export interface SADetail {
   idea: string;
+  sessions?: string;
   competencies: string[];
   blocks: string[];
 }
@@ -30,6 +31,7 @@ export interface SADetail {
 export interface TeacherContext {
   subject: string;
   gradeLevel: string;
+  academicYear: string;
   weeklyHours: number;
   language: string;
   

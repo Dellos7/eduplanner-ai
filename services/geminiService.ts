@@ -112,18 +112,24 @@ export const generateEducationalDocument = async (
     let saCountText = `${context.numberOfSAs}`;
     
     if (context.generateFullCourse) {
+      const estimatedTotalSessions = context.weeklyHours * 35; // Aproximadamente 35 semanas lectivas
       saCountText = "todas las necesarias para el curso completo (decide tú el número ideal basándote en la carga lectiva)";
-      ideasPrompt = "\n\nIMPORTANTE: Ignora el número de SAs manual y genera una planificación completa anual.";
+      ideasPrompt = `\n\nIMPORTANTE: Ignora el número de SAs manual y genera una planificación completa anual.
+      Un curso escolar tiene aproximadamente 35 semanas lectivas. Dado que esta asignatura tiene ${context.weeklyHours} sesiones semanales, el total de sesiones del curso debe rondar las ${estimatedTotalSessions} sesiones.
+      Asegúrate de generar suficientes Situaciones de Aprendizaje y asignarles un número de sesiones realista (y suficientes actividades en cada una) para que la suma total se acerque a esta cifra (${estimatedTotalSessions} sesiones).`;
       if (context.fullCourseIdeas && context.fullCourseIdeas.trim()) {
         ideasPrompt += `\nTen en cuenta estas ideas generales para el curso: ${context.fullCourseIdeas.trim()}\n`;
       }
     } else if (context.saDetails && context.saDetails.length > 0) {
       ideasPrompt = "\n\nIMPORTANTE: Ten en cuenta estas propuestas específicas del usuario para cada SdA:\n";
       context.saDetails.forEach((detail, idx) => {
-        if (detail.idea.trim() || detail.competencies.length > 0 || detail.blocks.length > 0) {
+        if (detail.idea.trim() || detail.sessions?.trim() || detail.competencies.length > 0 || detail.blocks.length > 0) {
           ideasPrompt += `- SdA número ${idx + 1}:\n`;
           if (detail.idea.trim()) {
             ideasPrompt += `  * Idea/Temática: ${detail.idea.trim()}\n`;
+          }
+          if (detail.sessions?.trim()) {
+            ideasPrompt += `  * Nº de sesiones (aproximado): ${detail.sessions.trim()}\n`;
           }
           if (detail.competencies.length > 0) {
             ideasPrompt += `  * Competencias Específicas: ${detail.competencies.join(', ')}\n`;
@@ -137,11 +143,11 @@ export const generateEducationalDocument = async (
 
     const orgHeader = getOrganizationHeaders(context.language);
 
-    let programacionTitle = "Programación de Aula";
+    let programacionTitle = `Programación de Aula de ${context.subject}, ${context.gradeLevel}, ${context.academicYear}`;
     if (context.language.includes('Catalán') || context.language.includes('Valenciano')) {
-      programacionTitle = "Programació d'Aula";
+      programacionTitle = `Programació d'Aula de ${context.subject}, ${context.gradeLevel}, ${context.academicYear}`;
     } else if (context.language.includes('Inglés')) {
-      programacionTitle = "Classroom Programming";
+      programacionTitle = `Classroom Programming for ${context.subject}, ${context.gradeLevel}, ${context.academicYear}`;
     }
 
     prompt = `
@@ -153,17 +159,24 @@ export const generateEducationalDocument = async (
       1. Empieza el documento con un único encabezado principal (h1): # ${programacionTitle}
       2. **NUMERA SIEMPRE** las situaciones en el título (ej: 1, 2, 3...) y usa SIEMPRE encabezado de nivel 2 (h2) para cada una.
       3. Escribe el texto COMPLETO de las Competencias Específicas, sin usar puntos suspensivos ni resumirlas.
-      4. Los Criterios de Evaluación deben indicarse ÚNICAMENTE con su numeración (ej. 3.1, 3.2...) y deben aparecer justo debajo de la Competencia Específica a la que hacen referencia.
+      4. Los Criterios de Evaluación deben indicarse ÚNICAMENTE con su numeración estricta (ej. 1.1, 1.2, 2.1, 3.1...) y deben aparecer justo debajo de la Competencia Específica a la que hacen referencia. IGNORA CUALQUIER PREFIJO adicional que aparezca en el PDF (ej. si en el PDF pone 5.1.1 para la CE 1, tú escribe SOLO 1.1).
       5. En la columna "Medidas de respuesta educativa para la inclusión" de la tabla de Organización, debes especificar medidas CONCRETAS que ayuden a las siguientes problemáticas del aula: ${needsString}.
       6. Los Saberes Básicos deben indicar siempre explícitamente a qué Bloque Curricular pertenecen.
       7. Debes incluir una tabla resumen al principio y una matriz de competencias al final. Traduce los títulos de estas tablas al idioma solicitado.
+      8. ${context.generateFullCourse ? 'Asegúrate de repartir TODAS las competencias específicas y saberes básicos de la asignatura entre todas las situaciones de aprendizaje generadas.' : 'No fuerces la inclusión de competencias específicas o saberes básicos que no tengan sentido con la temática de la situación de aprendizaje. Es normal que en un número reducido de situaciones no se cubran todas las competencias o saberes del currículo.'}
       
       ESTRUCTURA EXACTA DEL DOCUMENTO:
 
       # ${programacionTitle}
 
-      ## Resumen de Situaciones de Aprendizaje
+      ${context.generateFullCourse ? `
+      ## Distribución temporal
       Genera una tabla con 3 columnas: "Situación de Aprendizaje" (solo el nombre), "Número de Sesiones Totales" y "Trimestre" (1º, 2º o 3º, distribuyéndolas equitativamente a lo largo del curso).
+      Añade una última fila al final de esta tabla que muestre la palabra "TOTAL" y la suma matemática de todas las sesiones del curso.
+      ` : `
+      ## Distribución temporal
+      No se ha generado de forma automática la distribución temporal al no haberse marcado la opción de generación de la programación para todo el curso.
+      `}
 
       [A continuación, repite la siguiente estructura para CADA situación de aprendizaje:]
 
@@ -182,7 +195,7 @@ export const generateEducationalDocument = async (
 
       **Competencias Específicas y Criterios de Evaluación vinculados:**
       - **Competencia Específica [X]:** [Texto COMPLETO de la competencia]
-        - Criterios de evaluación: [X.1], [X.2]...
+        - Criterios de evaluación: [X.1], [X.2]... (Recuerda: sin prefijos extra, solo X.Y)
 
       **Saberes Básicos:**
       - **Bloque [Nombre del Bloque Curricular]:** [Saberes del PDF]
@@ -201,7 +214,8 @@ export const generateEducationalDocument = async (
       [Al final del documento, tras la última situación de aprendizaje, incluye obligatoriamente la siguiente sección:]
 
       ## Matriz de Competencias y Criterios vs Situaciones de Aprendizaje
-      Genera una tabla de doble entrada. En las filas, pon las Competencias Específicas divididas en sus Criterios de Evaluación correspondientes. En las columnas, pon las Situaciones de Aprendizaje generadas (SdA 1, SdA 2...). Las celdas deben contener un check (✓) indicando en qué situación de aprendizaje se ha tenido en cuenta cada competencia y criterio.
+      Genera una tabla de doble entrada. En las filas, pon TODAS las Competencias Específicas de la asignatura divididas en sus Criterios de Evaluación correspondientes, INCLUSO AQUELLAS QUE NO SE HAYAN UTILIZADO en ninguna situación de aprendizaje (en cuyo caso la fila quedará en blanco). En las columnas, pon las Situaciones de Aprendizaje generadas (SdA 1, SdA 2...). Las celdas deben contener un check (✓) indicando en qué situación de aprendizaje se ha tenido en cuenta cada competencia y criterio.
+      IMPORTANTE: La numeración de los criterios de evaluación DEBE corresponder exactamente con su competencia específica (ej. para la CE 1, los criterios son 1.1, 1.2, 1.3... NO uses prefijos inventados ni prefijos del PDF como 5.1.1. Si la competencia es la 2, los criterios son 2.1, 2.2, etc.).
     `;
   }
 

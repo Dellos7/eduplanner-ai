@@ -28,7 +28,7 @@ const PlanningForm: React.FC<PlanningFormProps> = ({ initialData, analysisData, 
       setFormData(prev => {
         const newDetails = [...prev.saDetails];
         while (newDetails.length < newNum) {
-          newDetails.push({ idea: '', competencies: [], blocks: [] });
+          newDetails.push({ idea: '', sessions: '', competencies: [], blocks: [] });
         }
         return { ...prev, numberOfSAs: newNum, saDetails: newDetails.slice(0, newNum) };
       });
@@ -41,7 +41,7 @@ const PlanningForm: React.FC<PlanningFormProps> = ({ initialData, analysisData, 
     setFormData(prev => {
       const newDetails = [...prev.saDetails];
       if (!newDetails[index]) {
-        newDetails[index] = { idea: '', competencies: [], blocks: [] };
+        newDetails[index] = { idea: '', sessions: '', competencies: [], blocks: [] };
       }
       newDetails[index] = { ...newDetails[index], [field]: value };
       return { ...prev, saDetails: newDetails };
@@ -52,7 +52,7 @@ const PlanningForm: React.FC<PlanningFormProps> = ({ initialData, analysisData, 
     setFormData(prev => {
       const newDetails = [...prev.saDetails];
       if (!newDetails[index]) {
-        newDetails[index] = { idea: '', competencies: [], blocks: [] };
+        newDetails[index] = { idea: '', sessions: '', competencies: [], blocks: [] };
       }
       const list = newDetails[index][field];
       const newList = list.includes(item) ? list.filter(i => i !== item) : [...list, item];
@@ -138,7 +138,7 @@ const PlanningForm: React.FC<PlanningFormProps> = ({ initialData, analysisData, 
                     <div className="space-y-4">
                       {Array.from({ length: formData.numberOfSAs }).map((_, idx) => {
                         const isExpanded = expandedSA === idx;
-                        const detail = formData.saDetails[idx] || { idea: '', competencies: [], blocks: [] };
+                        const detail = formData.saDetails[idx] || { idea: '', sessions: '', competencies: [], blocks: [] };
                         
                         return (
                           <div key={idx} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-all">
@@ -165,15 +165,27 @@ const PlanningForm: React.FC<PlanningFormProps> = ({ initialData, analysisData, 
                             
                             {isExpanded && (
                               <div className="p-4 space-y-5 animate-fade-in">
-                                <div>
-                                  <label className="text-xs font-bold text-slate-700 block mb-1">Idea / Temática</label>
-                                  <textarea
-                                    value={detail.idea}
-                                    onChange={(e) => handleSADetailChange(idx, 'idea', e.target.value)}
-                                    placeholder="Ej: Proyecto sobre energías renovables usando Arduino..."
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none text-sm bg-white shadow-sm"
-                                    rows={2}
-                                  />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div className="sm:col-span-2">
+                                    <label className="text-xs font-bold text-slate-700 block mb-1">Idea / Temática</label>
+                                    <textarea
+                                      value={detail.idea}
+                                      onChange={(e) => handleSADetailChange(idx, 'idea', e.target.value)}
+                                      placeholder="Ej: Proyecto sobre energías renovables usando Arduino..."
+                                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none text-sm bg-white shadow-sm"
+                                      rows={2}
+                                    />
+                                  </div>
+                                  <div className="sm:col-span-1">
+                                    <label className="text-xs font-bold text-slate-700 block mb-1">Nº de sesiones (aproximado)</label>
+                                    <input
+                                      type="text"
+                                      value={detail.sessions || ''}
+                                      onChange={(e) => handleSADetailChange(idx, 'sessions', e.target.value)}
+                                      placeholder="Ej: 12"
+                                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none text-sm bg-white shadow-sm"
+                                    />
+                                  </div>
                                 </div>
                                 
                                 {analysisData && analysisData.competencies && analysisData.competencies.length > 0 && (
