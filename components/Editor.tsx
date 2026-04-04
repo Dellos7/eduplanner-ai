@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Download, Edit3, ArrowLeft, Save, FileText, ChevronDown, ChevronUp, Layers, Type, LayoutTemplate, FileJson, FileType, Printer, Plus, Trash2, Send, MessageSquare, Loader2, Sparkles, User, Info, CheckSquare, Square, AlertCircle, XCircle } from 'lucide-react';
+import { Download, Edit3, ArrowLeft, Save, FileText, ChevronDown, ChevronUp, Layers, Type, LayoutTemplate, FileJson, FileType, Printer, Plus, Trash2, Send, MessageSquare, Loader2, Sparkles, User, Info, CheckSquare, Square, AlertCircle, XCircle, Copy, FileDown, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import domtoimage from 'dom-to-image-more';
@@ -75,6 +75,7 @@ const Editor: React.FC<EditorProps> = ({
   const [chatInput, setChatInput] = useState('');
   const [isRefining, setIsRefining] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
   
   // Estado para mensajes de error de validación visuales
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -220,6 +221,16 @@ const Editor: React.FC<EditorProps> = ({
     if (!validateExport()) return;
     const blob = new Blob([content], {type: 'text/markdown'});
     downloadFile(blob, `${docTitle.replace(/\s+/g, '_')}.md`);
+  };
+
+  const handleCopyMD = async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 3000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
   };
 
   // --- LOGICA DE EXPORTACIÓN DOC/ODT ---
@@ -555,30 +566,50 @@ const Editor: React.FC<EditorProps> = ({
                       <Edit3 className="w-4 h-4" /> Editar
                     </button>
                   ) : (
-                    <button onClick={saveSectionsToContent} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all shadow-md w-full justify-center">
-                      <Save className="w-4 h-4" /> Guardar
-                    </button>
+                    <>
+                      <button onClick={() => setMode('preview')} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-600 bg-slate-200 hover:bg-slate-300 rounded-lg transition-all shadow-md w-full justify-center">
+                        <XCircle className="w-4 h-4" /> Cancelar
+                      </button>
+                      <button onClick={saveSectionsToContent} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all shadow-md w-full justify-center">
+                        <Save className="w-4 h-4" /> Guardar
+                      </button>
+                    </>
                   )}
                 </div>
                 
                 <div className="flex gap-2 w-full">
+                  <button onClick={handleCopyMD} className={`flex items-center justify-center flex-1 gap-1.5 px-3 py-2 text-xs font-bold rounded-lg transition-colors ${isCopied ? 'text-emerald-700 bg-emerald-100 border border-emerald-200' : 'text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200'}`} title="Copiar Markdown">
+                    {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {isCopied ? '¡Copiado!' : 'Copiar MD'}
+                  </button>
+
                   <button onClick={handleDownloadMD} className="flex items-center justify-center flex-1 gap-1.5 px-3 py-2 text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 rounded-lg transition-colors" title="Descargar Markdown">
-                    <FileText className="w-4 h-4" /> MD
+                    <FileDown className="w-4 h-4" /> Descargar MD
                   </button>
 
                   <button onClick={handleDownloadDoc} className="flex items-center justify-center flex-1 gap-1.5 px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-100 hover:bg-blue-100 rounded-lg transition-colors" title="Descargar Word / OpenOffice">
-                    <FileType className="w-4 h-4" /> DOC
+                    <FileType className="w-4 h-4" /> Descargar DOC
                   </button>
 
                   <button 
                     onClick={handleDownloadPDF} 
                     disabled={isGeneratingPDF}
                     title="Descargar PDF"
-                    className={`flex items-center justify-center flex-1 gap-1.5 px-3 py-2 text-xs font-bold text-white rounded-lg transition-all shadow-md ${isGeneratingPDF ? 'bg-slate-400 cursor-wait' : 'bg-rose-600 hover:bg-rose-700 active:scale-95'}`}
+                    className={`hidden items-center justify-center flex-1 gap-1.5 px-3 py-2 text-xs font-bold text-white rounded-lg transition-all shadow-md ${isGeneratingPDF ? 'bg-slate-400 cursor-wait' : 'bg-rose-600 hover:bg-rose-700 active:scale-95'}`}
                   >
                     {isGeneratingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
                     {isGeneratingPDF ? '...' : 'PDF'}
                   </button>
+                </div>
+                
+                <div className="flex gap-2 w-full mt-2">
+                  <a href="https://markdowntoword.io/tools/markdown-to-docx" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center flex-1 gap-1.5 px-3 py-2 text-xs font-bold text-blue-700 bg-blue-100 border border-blue-200 hover:bg-blue-200 rounded-lg transition-colors" title="Convertir MD a DOCX">
+                    <FileType className="w-4 h-4" /> MD a DOCX
+                  </a>
+
+                  <a href="https://markdowntoword.io/tools/markdown-to-pdf" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center flex-1 gap-1.5 px-3 py-2 text-xs font-bold text-rose-700 bg-rose-100 border border-rose-200 hover:bg-rose-200 rounded-lg transition-colors" title="Convertir MD a PDF">
+                    <Printer className="w-4 h-4" /> MD a PDF
+                  </a>
                 </div>
               </div>
             </div>
@@ -619,6 +650,63 @@ const Editor: React.FC<EditorProps> = ({
   );
 };
 
+interface GenericTableData {
+  preText: string;
+  headers: string[];
+  rows: string[][];
+  postText: string;
+}
+
+const parseGenericTable = (md: string): GenericTableData | null => {
+  const lines = md.split('\n');
+  let tableStartIndex = -1;
+  let tableEndIndex = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('|') && line.includes('|', 1)) {
+      if (tableStartIndex === -1) tableStartIndex = i;
+      tableEndIndex = i;
+    } else if (tableStartIndex !== -1 && !line.startsWith('|')) {
+      break;
+    }
+  }
+
+  if (tableStartIndex === -1) return null;
+
+  const preText = lines.slice(0, tableStartIndex).join('\n');
+  const postText = lines.slice(tableEndIndex + 1).join('\n');
+
+  const tableLines = lines.slice(tableStartIndex, tableEndIndex + 1);
+  if (tableLines.length < 2) return null;
+
+  const parseRow = (line: string) => {
+    const parts = line.split('|');
+    if (parts.length > 0 && parts[0].trim() === '') parts.shift();
+    if (parts.length > 0 && parts[parts.length - 1].trim() === '') parts.pop();
+    return parts.map(s => s.trim());
+  };
+
+  const headers = parseRow(tableLines[0]);
+  const rows = tableLines.slice(2).map(parseRow);
+
+  return { preText, headers, rows, postText };
+};
+
+const syncGenericTableToMd = (data: GenericTableData): string => {
+  const headerRow = `| ${data.headers.join(' | ')} |`;
+  const separatorRow = `| ${data.headers.map(() => '---').join(' | ')} |`;
+  const dataRows = data.rows.map(row => `| ${row.join(' | ')} |`).join('\n');
+  
+  return [
+    data.preText,
+    headerRow,
+    separatorRow,
+    dataRows,
+    data.postText
+  ].filter(s => s !== undefined && s !== null && s !== '').join('\n').trim();
+};
+
 interface SectionEditorProps {
   section: DocSection;
   isExpanded: boolean;
@@ -630,14 +718,21 @@ interface SectionEditorProps {
 
 const SectionEditor: React.FC<SectionEditorProps> = ({ section, isExpanded, onToggle, onChange, onTitleChange, language }) => {
   const isSA = section.title.toUpperCase().includes("SITUACIÓN DE APRENDIZAJE");
-  const [useRaw, setUseRaw] = useState(!isSA);
+  const isTemporal = section.title.toUpperCase().includes("DISTRIBUCIÓN TEMPORAL") || section.title.toUpperCase().includes("DISTRIBUCIÓ DEL TEMPS") || section.title.toUpperCase().includes("TIME DISTRIBUTION");
+  const isMatrix = section.title.toUpperCase().includes("MATRIZ DE COMPETENCIAS") || section.title.toUpperCase().includes("MATRIU DE COMPETÈNCIES") || section.title.toUpperCase().includes("COMPETENCE MATRIX");
+  const isGenericTable = isTemporal || isMatrix;
+  
+  const [useRaw, setUseRaw] = useState(!(isSA || isGenericTable));
   const [saData, setSaData] = useState<SAStructure | null>(null);
+  const [genericTableData, setGenericTableData] = useState<GenericTableData | null>(null);
 
   useEffect(() => {
     if (isSA && !useRaw && isExpanded) {
       setSaData(parseSAMarkdown(section.content));
+    } else if (isGenericTable && !useRaw && isExpanded) {
+      setGenericTableData(parseGenericTable(section.content));
     }
-  }, [isExpanded, isSA, useRaw, section.content]);
+  }, [isExpanded, isSA, isGenericTable, useRaw, section.content]);
 
   const parseSAMarkdown = (md: string): SAStructure => {
     const extract = (markerStart: string, markerEnd: string | null) => {
@@ -742,6 +837,32 @@ ${newData.instruments}`;
     handleSAChange('activities', newActs);
   };
 
+  const handleGenericTableChange = (rowIndex: number, colIndex: number, value: string) => {
+    if (!genericTableData) return;
+    const newRows = [...genericTableData.rows];
+    newRows[rowIndex] = [...newRows[rowIndex]];
+    newRows[rowIndex][colIndex] = value;
+    const updated = { ...genericTableData, rows: newRows };
+    setGenericTableData(updated);
+    onChange(syncGenericTableToMd(updated));
+  };
+
+  const addGenericTableRow = () => {
+    if (!genericTableData) return;
+    const newRow = new Array(genericTableData.headers.length).fill('');
+    const updated = { ...genericTableData, rows: [...genericTableData.rows, newRow] };
+    setGenericTableData(updated);
+    onChange(syncGenericTableToMd(updated));
+  };
+
+  const removeGenericTableRow = (rowIndex: number) => {
+    if (!genericTableData) return;
+    const newRows = genericTableData.rows.filter((_, i) => i !== rowIndex);
+    const updated = { ...genericTableData, rows: newRows };
+    setGenericTableData(updated);
+    onChange(syncGenericTableToMd(updated));
+  };
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4 transition-all hover:border-indigo-200">
       <div className="flex items-center justify-between p-4 bg-slate-50 border-b border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors" onClick={onToggle}>
@@ -756,7 +877,7 @@ ${newData.instruments}`;
           />
         </div>
         <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-           {isSA && <button onClick={() => setUseRaw(!useRaw)} className="text-[9px] px-2 py-0.5 rounded-full font-bold bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 transition-all uppercase">{useRaw ? "MODO CAMPOS" : "MODO TEXTO"}</button>}
+           {(isSA || isGenericTable) && <button onClick={() => setUseRaw(!useRaw)} className="text-[9px] px-2 py-0.5 rounded-full font-bold bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 transition-all uppercase">{useRaw ? "MODO CAMPOS" : "MODO TEXTO"}</button>}
            {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400"/> : <ChevronDown className="w-4 h-4 text-slate-400"/>}
         </div>
       </div>
@@ -819,6 +940,51 @@ ${newData.instruments}`;
               
               <div><span className="text-xs font-bold text-slate-600 block mb-1">Instrumentos de Evaluación</span>
               <textarea className="w-full min-h-[100px] p-3 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50/50" value={saData.instruments} onChange={e => handleSAChange('instruments', e.target.value)} /></div>
+            </div>
+          ) : isGenericTable && !useRaw && genericTableData ? (
+            <div className="space-y-4">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                <table className="w-full text-left text-sm text-slate-600">
+                  <thead className="bg-slate-50 text-xs uppercase text-slate-500 border-b border-slate-200">
+                    <tr>
+                      {genericTableData.headers.map((header, idx) => (
+                        <th key={idx} className="px-4 py-3 font-bold">{header}</th>
+                      ))}
+                      <th className="px-4 py-3 w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {genericTableData.rows.map((row, rowIndex) => (
+                      <tr key={rowIndex} className="hover:bg-slate-50/50 transition-colors group">
+                        {row.map((cell, colIndex) => (
+                          <td key={colIndex} className="p-2 align-top">
+                            <textarea
+                              className="w-full min-h-[60px] p-2 border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded-lg text-xs outline-none resize-y bg-transparent focus:bg-white transition-all"
+                              value={cell}
+                              onChange={(e) => handleGenericTableChange(rowIndex, colIndex, e.target.value)}
+                            />
+                          </td>
+                        ))}
+                        <td className="p-2 align-middle text-center">
+                          <button 
+                            onClick={() => removeGenericTableRow(rowIndex)}
+                            className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                            title="Eliminar fila"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <button 
+                onClick={addGenericTableRow}
+                className="text-xs flex items-center gap-1.5 text-indigo-600 bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 font-bold transition-all border border-indigo-100"
+              >
+                <Plus className="w-4 h-4" /> Añadir Fila
+              </button>
             </div>
           ) : (
             <textarea value={section.content} onChange={e => onChange(e.target.value)} className="w-full min-h-[400px] p-4 border rounded-xl font-mono text-xs focus:ring-2 focus:ring-indigo-500 outline-none leading-relaxed bg-slate-50/30 shadow-inner" />
