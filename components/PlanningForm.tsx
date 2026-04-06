@@ -13,13 +13,6 @@ const PlanningForm: React.FC<PlanningFormProps> = ({ initialData, analysisData, 
   const [formData, setFormData] = useState<TeacherContext>(initialData);
   const [expandedSA, setExpandedSA] = useState<number | null>(0);
 
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target;
-    if (name === 'generateFullCourse') {
-      setFormData(prev => ({ ...prev, generateFullCourse: checked }));
-    }
-  };
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     if (name === 'numberOfSAs') {
@@ -80,18 +73,32 @@ const PlanningForm: React.FC<PlanningFormProps> = ({ initialData, analysisData, 
 
         <form onSubmit={handleSubmit} className="p-8 space-y-8">
           <div className="space-y-4">
+            <div className="flex space-x-2 bg-slate-100 p-1.5 rounded-xl mb-6">
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, generateFullCourse: true }))}
+                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${
+                  formData.generateFullCourse
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                }`}
+              >
+                Generar programación para todo el curso
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, generateFullCourse: false }))}
+                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${
+                  !formData.generateFullCourse
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                }`}
+              >
+                Generar SdA específicas
+              </button>
+            </div>
+
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-6 shadow-inner">
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input 
-                  type="checkbox"
-                  name="generateFullCourse"
-                  checked={formData.generateFullCourse}
-                  onChange={handleCheckboxChange}
-                  className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300 transition-all"
-                />
-                <span className="text-slate-800 font-bold group-hover:text-indigo-600 transition-colors">Generar programación para todo el curso</span>
-              </label>
-              
               {formData.generateFullCourse ? (
                 <div className="space-y-4 animate-fade-in-down">
                   <div className="flex items-center gap-2 text-indigo-800 font-bold text-sm bg-indigo-50/50 p-2 rounded-lg w-fit">

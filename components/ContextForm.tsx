@@ -243,6 +243,14 @@ const ContextForm: React.FC<ContextFormProps> = ({ initialData, analysisData, on
               </button>
             ))}
           </div>
+          <textarea
+            name="methodologyDescription"
+            value={formData.methodologyDescription || ''}
+            onChange={handleChange}
+            rows={3}
+            placeholder="Describe el tipo de metodología a seguir a la hora de desarrollar el contenido final..."
+            className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+          />
         </div>
 
         <hr className="border-slate-100" />

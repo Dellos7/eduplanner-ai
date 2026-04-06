@@ -33,6 +33,7 @@ const initialContext: TeacherContext = {
   selectedNeeds: [],
   otherNeeds: '',
   methodologyPreference: ['Aprendizaje Basado en Proyectos (ABP)'],
+  methodologyDescription: '',
   generateFullCourse: false,
   fullCourseIdeas: '',
   numberOfSAs: 2,

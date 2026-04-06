@@ -41,6 +41,7 @@ export interface TeacherContext {
   
   // Methodologies
   methodologyPreference: string[];
+  methodologyDescription: string;
   
   // SA Specifics
   generateFullCourse: boolean;

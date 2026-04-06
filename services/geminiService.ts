@@ -86,6 +86,10 @@ export const generateEducationalDocument = async (
   let prompt = "";
   const needsString = [...context.selectedNeeds, context.otherNeeds].filter(Boolean).join(", ");
   const methodologiesString = context.methodologyPreference.join(", ");
+  let methodologyDetails = methodologiesString;
+  if (context.methodologyDescription && context.methodologyDescription.trim()) {
+    methodologyDetails += `. Descripción adicional: ${context.methodologyDescription.trim()}`;
+  }
   const langInstruction = `IDIOMA DEL DOCUMENTO: ${context.language}.`;
 
   if (docType === DocType.PROPUESTA) {
@@ -99,13 +103,14 @@ export const generateEducationalDocument = async (
       # PROPUESTA PEDAGÓGICA: ${context.subject}
       ## 1. Concreción Curricular
       Detalla competencias específicas y criterios del PDF vinculados a ${context.gradeLevel}.
-      IMPORTANTE: Escribe el texto COMPLETO de las Competencias Específicas, sin usar puntos suspensivos ni resumirlas. Los Criterios de Evaluación deben indicarse ÚNICAMENTE con su numeración (ej. 3.1, 3.2...) y deben aparecer justo debajo de la Competencia Específica a la que hacen referencia.
+      IMPORTANTE: Escribe el texto COMPLETO de las Competencias Específicas. Además, detalla de forma completa el texto de los Criterios de Evaluación asociados a cada competencia, no solo su numeración.
+      A continuación, redacta también los Saberes Básicos, distribuidos de forma adecuada en los bloques de contenido correspondientes extraídos de la referencia curricular.
       ## 2. Metodología y Estrategias
-      Basadas en: ${methodologiesString}.
-      ## 3. Evaluación
-      Instrumentos, criterios de calificación y temporalización (basado en ${context.weeklyHours}h/semana).
-      ## 4. Atención a la Diversidad
-      Medidas específicas para: ${needsString}.
+      Basadas en: ${methodologyDetails}.
+      ## 3. Valoración general del progreso del alumnado
+      Incluye subapartados para "Instrumentos de recogida de información" y "Criterios de calificación cualitativa y cuantitativa" (basado en ${context.weeklyHours}h/semana).
+      ## 4. Medidas de respuesta educativa para la inclusión
+      Medidas específicas para todas estas problemáticas: ${needsString}.
     `;
   } else {
     let ideasPrompt = "";
