@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import domtoimage from 'dom-to-image-more';
 import jsPDF from 'jspdf';
-import { CurriculumAnalysis } from '../types';
+import { CurriculumAnalysis, TeacherContext, DocType } from '../types';
 import CurricularReference from './CurricularReference';
 
 interface EditorProps {
@@ -18,6 +18,8 @@ interface EditorProps {
   language?: string;
   gradeLevel?: string;
   subject?: string;
+  teacherContext?: TeacherContext;
+  docType?: DocType;
 }
 
 interface DocSection {
@@ -58,6 +60,8 @@ const Editor: React.FC<EditorProps> = ({
   language = 'Castellano',
   gradeLevel = '',
   subject = '',
+  teacherContext,
+  docType,
 }) => {
   const [content, setContent] = useState(initialContent);
   const [teacherName, setTeacherName] = useState(localStorage.getItem('TEACHER_NAME') || '');
@@ -221,6 +225,21 @@ const Editor: React.FC<EditorProps> = ({
     if (!validateExport()) return;
     const blob = new Blob([content], {type: 'text/markdown'});
     downloadFile(blob, `${docTitle.replace(/\s+/g, '_')}.md`);
+  };
+
+  const handleExportJSON = () => {
+    const exportData = {
+      version: "1.0",
+      docType: docType,
+      teacherContext: teacherContext,
+      analysisData: analysisData,
+      content: content,
+      teacherName: teacherName,
+      department: department
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    downloadFile(blob, `${docTitle.replace(/\s+/g, '_')}_export.json`);
   };
 
   const handleCopyMD = async () => {
@@ -500,8 +519,12 @@ const Editor: React.FC<EditorProps> = ({
       <aside className="w-full lg:w-96 shrink-0 print:hidden lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
         <div className="flex flex-col gap-4 h-full overflow-y-auto custom-scrollbar pb-4 pr-2">
           {/* Top Controls: Teacher Info & Export */}
-          <div className="flex flex-col gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm shrink-0">
-            <div className="flex flex-col gap-6">
+          <div className="flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm shrink-0">
+            <div className="p-6 border-b border-slate-100 flex items-center gap-2">
+               <FileDown className="w-5 h-5 text-indigo-600" />
+               <h2 className="text-lg font-bold text-slate-800">Descargar/Exportar</h2>
+            </div>
+            <div className="p-6 flex flex-col gap-6">
               <div className="flex-1 space-y-4">
                 <div className="flex items-center gap-2">
                    <User className="w-4 h-4 text-indigo-500" />
@@ -611,16 +634,20 @@ const Editor: React.FC<EditorProps> = ({
                     <Printer className="w-4 h-4" /> MD a PDF
                   </a>
                 </div>
+
+                <button onClick={handleExportJSON} className="flex items-center justify-center w-full gap-2 px-4 py-3 text-sm font-bold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-lg transition-all shadow-sm mt-2" title="Exportar a JSON para importar después">
+                  <FileJson className="w-5 h-5" /> Exportar todo el proyecto a JSON
+                </button>
               </div>
             </div>
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col shrink-0">
-            <div className="p-4 border-b border-slate-100 bg-slate-50 rounded-t-xl flex items-center gap-2">
+            <div className="p-6 border-b border-slate-100 flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-indigo-600" />
-              <span className="font-bold text-slate-700 text-sm">Ajustar con Inteligencia Artificial</span>
+              <h2 className="text-lg font-bold text-slate-800">Ajustar con Inteligencia Artificial</h2>
             </div>
-            <div className="p-5 space-y-4">
+            <div className="p-6 space-y-4">
               <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-xl text-xs text-indigo-800 leading-relaxed flex gap-2 italic">
                 <Sparkles className="w-5 h-5 shrink-0 text-amber-500" />
                 <span>Ej: "Añade más actividades de gamificación", "Cambia el tono a uno más inclusivo" o "Sé más específico en la evaluación".</span>

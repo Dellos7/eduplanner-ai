@@ -34,7 +34,7 @@ const initialContext: TeacherContext = {
   otherNeeds: '',
   methodologyPreference: ['Aprendizaje Basado en Proyectos (ABP)'],
   methodologyDescription: '',
-  generateFullCourse: false,
+  generateFullCourse: true,
   fullCourseIdeas: '',
   numberOfSAs: 2,
   saDetails: [
@@ -93,6 +93,19 @@ export default function App() {
       setPdfName(name);
       await performAnalysis(base64);
     }
+  };
+
+  const handleJsonImport = (jsonData: any) => {
+    if (jsonData.docType) setCurrentDocType(jsonData.docType);
+    if (jsonData.teacherContext) setContext(jsonData.teacherContext);
+    if (jsonData.analysisData) setAnalysisData(jsonData.analysisData);
+    if (jsonData.content) setResultContent(jsonData.content);
+    
+    // Also restore teacher/department if present
+    if (jsonData.teacherName) localStorage.setItem('TEACHER_NAME', jsonData.teacherName);
+    if (jsonData.department) localStorage.setItem('DEPARTMENT_NAME', jsonData.department);
+
+    setStep(AppStep.EDITOR);
   };
 
   const handleContextSubmit = (data: TeacherContext) => {
@@ -301,7 +314,7 @@ export default function App() {
             <>
               {step === AppStep.UPLOAD && (
                 <div className="space-y-8">
-                  <FileUpload onFileSelect={handleFileSelect} disabled={!hasApiKey} />
+                  <FileUpload onFileSelect={handleFileSelect} onJsonImport={handleJsonImport} disabled={!hasApiKey} />
                   
                   <div className="flex justify-center">
                     <button
@@ -363,6 +376,8 @@ export default function App() {
                   language={context.language}
                   gradeLevel={context.gradeLevel}
                   subject={context.subject}
+                  teacherContext={context}
+                  docType={currentDocType}
                 />
               )}
             </>
