@@ -6,6 +6,7 @@ import ContextForm from './components/ContextForm';
 import PlanningForm from './components/PlanningForm';
 import DocTypeSelector from './components/DocTypeSelector';
 import Editor from './components/Editor';
+import ActivitiesStep from './components/ActivitiesStep';
 import History from './components/History';
 import { AppStep, DocType, TeacherContext, CurriculumAnalysis, HistoryItem } from './types';
 import { generateEducationalDocument, analyzePdfStructure, refineDocument } from './services/geminiService';
@@ -378,6 +379,15 @@ export default function App() {
                   subject={context.subject}
                   teacherContext={context}
                   docType={currentDocType}
+                  onDevelopActivities={() => setStep(AppStep.ACTIVITIES)}
+                />
+              )}
+              {step === AppStep.ACTIVITIES && (
+                <ActivitiesStep 
+                  markdownContent={resultContent}
+                  pdfBase64={pdfBase64}
+                  context={context}
+                  onBack={() => setStep(AppStep.EDITOR)}
                 />
               )}
             </>

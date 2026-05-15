@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Download, Edit3, ArrowLeft, Save, FileText, ChevronDown, ChevronUp, Layers, Type, LayoutTemplate, FileJson, FileType, Printer, Plus, Trash2, Send, MessageSquare, Loader2, Sparkles, User, Info, CheckSquare, Square, AlertCircle, XCircle, Copy, FileDown, Check } from 'lucide-react';
+import { Download, Edit3, ArrowLeft, Save, FileText, ChevronDown, ChevronUp, Layers, Type, LayoutTemplate, FileJson, FileType, Printer, Plus, Trash2, Send, MessageSquare, Loader2, Sparkles, User, Info, CheckSquare, Square, AlertCircle, XCircle, Copy, FileDown, Check, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import domtoimage from 'dom-to-image-more';
@@ -20,6 +20,7 @@ interface EditorProps {
   subject?: string;
   teacherContext?: TeacherContext;
   docType?: DocType;
+  onDevelopActivities?: () => void;
 }
 
 interface DocSection {
@@ -62,6 +63,7 @@ const Editor: React.FC<EditorProps> = ({
   subject = '',
   teacherContext,
   docType,
+  onDevelopActivities,
 }) => {
   const [content, setContent] = useState(initialContent);
   const [teacherName, setTeacherName] = useState(localStorage.getItem('TEACHER_NAME') || '');
@@ -671,6 +673,27 @@ const Editor: React.FC<EditorProps> = ({
             </form>
           </div>
         </div>
+        
+        {docType === DocType.SITUACION && onDevelopActivities && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col shrink-0">
+            <div className="p-6 border-b border-slate-100 flex items-center gap-2">
+              <Zap className="w-5 h-5 text-indigo-600" />
+              <h2 className="text-lg font-bold text-slate-800">Desarrollar actividades de las SdA</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-600">
+                Ve un paso más allá y pide a la IA que desarrolle de forma más concreta cada una de las actividades de las situaciones de aprendizaje generadas.
+              </p>
+              <button 
+                onClick={onDevelopActivities}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-sm shadow-md transition-all flex items-center justify-center gap-2 active:scale-95"
+              >
+                <Zap className="w-4 h-4" /> Desarrollar actividades
+              </button>
+            </div>
+          </div>
+        )}
+        
         </div>
       </aside>
     </div>

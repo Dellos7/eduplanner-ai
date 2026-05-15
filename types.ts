@@ -7,6 +7,7 @@ export enum AppStep {
   GENERATING = 'GENERATING',
   EDITOR = 'EDITOR',
   HISTORY = 'HISTORY',
+  ACTIVITIES = 'ACTIVITIES',
 }
 
 export enum DocType {

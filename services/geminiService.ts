@@ -229,7 +229,7 @@ export const generateEducationalDocument = async (
       model: "gemini-3-flash-preview",
       contents: {
         parts: [
-          { inlineData: { mimeType: "application/pdf", data: pdfBase64 } },
+          ...(pdfBase64 ? [{ inlineData: { mimeType: "application/pdf", data: pdfBase64 } }] : []),
           { text: prompt },
         ],
       },
@@ -239,6 +239,82 @@ export const generateEducationalDocument = async (
     });
 
     return response.text || "Error en generación.";
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+};
+
+export interface ActivityPromptInfo {
+  saTitle: string;
+  activityName: string;
+  instructions: string;
+}
+
+export const generateActivityDetails = async (
+  pdfBase64: string,
+  context: TeacherContext,
+  activityInfo: ActivityPromptInfo,
+  fullDocumentContext: string
+): Promise<string> => {
+  const ai = getAiClient();
+  const langInstruction = `IDIOMA DEL DOCUMENTO: ${context.language}.`;
+
+  const prompt = `
+    ${langInstruction}
+    Eres un experto pedagogo. Has generado previamente esta Programación de Aula:
+    ---
+    ${fullDocumentContext}
+    ---
+    
+    Tu tarea ahora es DESARROLLAR EN PROFUNDIDAD una de las actividades de esa programación.
+    Situación de Aprendizaje: "${activityInfo.saTitle}"
+    Actividad a desarrollar: "${activityInfo.activityName}"
+    Instrucciones específicas del usuario: "${activityInfo.instructions || 'Ninguna instrucción específica, desarrolla la actividad de forma creativa y alineada con la programación.'}"
+    
+    Escribe el desarrollo completo de la actividad en formato Markdown asegurándote de incluir, AL MENOS, los siguientes apartados:
+    
+    # ${activityInfo.activityName}
+    **Pertenece a:** ${activityInfo.saTitle}
+    
+    ## 1. Descripción de la actividad
+    [Descripción detallada]
+    
+    ## 2. Contexto
+    [Contexto en el que se desarrolla]
+    
+    ## 3. Distribución temporal
+    [Tiempo estimado y cómo se distribuye]
+    
+    ## 4. Recursos y materiales
+    [Lista detallada de recursos necesarios]
+    
+    ## 5. Medidas de respuesta educativa para la inclusión
+    [Medidas concretas aplicables a esta actividad, basándote en las necesidades del aula indicadas en la programación]
+    
+    ## 6. Desarrollo de la actividad para el alumnado
+    [Pasos detallados que seguirán los alumnos, explicados paso a paso]
+    
+    ## 7. Rúbrica de evaluación
+    Genera una propuesta de rúbrica para la evaluación de esta actividad en forma de tabla.
+    La máxima puntuación debe ser de 10 puntos. Establece niveles de logro claramente diferenciados.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: {
+        parts: [
+          ...(pdfBase64 ? [{ inlineData: { mimeType: "application/pdf", data: pdfBase64 } }] : []),
+          { text: prompt },
+        ],
+      },
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+      },
+    });
+
+    return response.text || "Error en generación de la actividad.";
   } catch (error) {
     console.error(error);
     throw error;
@@ -275,7 +351,7 @@ export const refineDocument = async (
       model: "gemini-3-flash-preview",
       contents: {
         parts: [
-          { inlineData: { mimeType: "application/pdf", data: pdfBase64 } },
+          ...(pdfBase64 ? [{ inlineData: { mimeType: "application/pdf", data: pdfBase64 } }] : []),
           { text: prompt },
         ],
       },
