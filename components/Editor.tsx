@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import domtoimage from 'dom-to-image-more';
 import jsPDF from 'jspdf';
-import { CurriculumAnalysis, TeacherContext, DocType } from '../types';
+import { CurriculumAnalysis, TeacherContext, DocType, GeneratedActivity } from '../types';
 import CurricularReference from './CurricularReference';
 
 interface EditorProps {
@@ -21,6 +21,9 @@ interface EditorProps {
   teacherContext?: TeacherContext;
   docType?: DocType;
   onDevelopActivities?: () => void;
+  generatedActivities?: GeneratedActivity[];
+  onUpdateContent?: (content: string) => void;
+  onExportJSON?: () => void;
 }
 
 interface DocSection {
@@ -64,6 +67,9 @@ const Editor: React.FC<EditorProps> = ({
   teacherContext,
   docType,
   onDevelopActivities,
+  generatedActivities = [],
+  onUpdateContent,
+  onExportJSON
 }) => {
   const [content, setContent] = useState(initialContent);
   const [teacherName, setTeacherName] = useState(localStorage.getItem('TEACHER_NAME') || '');
@@ -95,6 +101,12 @@ const Editor: React.FC<EditorProps> = ({
   useEffect(() => {
     localStorage.setItem('TEACHER_NAME', teacherName);
   }, [teacherName]);
+
+  useEffect(() => {
+    if (onUpdateContent) {
+      onUpdateContent(content);
+    }
+  }, [content, onUpdateContent]);
   
   useEffect(() => {
     localStorage.setItem('DEPARTMENT_NAME', department);
@@ -230,6 +242,10 @@ const Editor: React.FC<EditorProps> = ({
   };
 
   const handleExportJSON = () => {
+    if (onExportJSON) {
+      onExportJSON();
+      return;
+    }
     const exportData = {
       version: "1.0",
       docType: docType,
@@ -237,7 +253,8 @@ const Editor: React.FC<EditorProps> = ({
       analysisData: analysisData,
       content: content,
       teacherName: teacherName,
-      department: department
+      department: department,
+      activities: generatedActivities
     };
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });

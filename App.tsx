@@ -6,11 +6,12 @@ import ContextForm from './components/ContextForm';
 import PlanningForm from './components/PlanningForm';
 import DocTypeSelector from './components/DocTypeSelector';
 import Editor from './components/Editor';
-import ActivitiesStep from './components/ActivitiesStep';
+import ActivitiesSelection from './components/ActivitiesSelection';
+import ActivitiesResults from './components/ActivitiesResults';
 import History from './components/History';
-import { AppStep, DocType, TeacherContext, CurriculumAnalysis, HistoryItem } from './types';
+import { AppStep, DocType, TeacherContext, CurriculumAnalysis, HistoryItem, GeneratedActivity } from './types';
 import { generateEducationalDocument, analyzePdfStructure, refineDocument } from './services/geminiService';
-import { saveToHistory } from './services/historyService';
+import { saveToHistory, updateHistoryItem } from './services/historyService';
 import { Loader2, AlertCircle, FileSearch, Key, Clock } from 'lucide-react';
 
 const getCurrentAcademicYear = () => {
@@ -52,6 +53,8 @@ export default function App() {
   const [analysisData, setAnalysisData] = useState<CurriculumAnalysis | null>(null);
   const [resultContent, setResultContent] = useState<string>('');
   const [currentDocType, setCurrentDocType] = useState<DocType | null>(null);
+  const [generatedActivities, setGeneratedActivities] = useState<GeneratedActivity[]>([]);
+  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(true);
@@ -105,8 +108,33 @@ export default function App() {
     // Also restore teacher/department if present
     if (jsonData.teacherName) localStorage.setItem('TEACHER_NAME', jsonData.teacherName);
     if (jsonData.department) localStorage.setItem('DEPARTMENT_NAME', jsonData.department);
+    if (jsonData.activities) setGeneratedActivities(jsonData.activities);
 
+    setCurrentHistoryId(null);
     setStep(AppStep.EDITOR);
+  };
+
+  const handleExportJSON = () => {
+    const exportData = {
+      version: "1.0",
+      docType: currentDocType,
+      teacherContext: context,
+      analysisData: analysisData,
+      content: resultContent, // using latest resultContent
+      teacherName: localStorage.getItem('TEACHER_NAME') || '',
+      department: localStorage.getItem('DEPARTMENT_NAME') || '',
+      activities: generatedActivities
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Proyecto_${currentDocType === DocType.PROPUESTA ? 'Propuesta' : 'SdA'}_export.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleContextSubmit = (data: TeacherContext) => {
@@ -129,13 +157,15 @@ export default function App() {
       setResultContent(content);
       
       // Save to history
-      saveToHistory({
+      const historyItem = saveToHistory({
         title: type === DocType.PROPUESTA ? 'Propuesta Pedagógica' : 'Situaciones de Aprendizaje',
         content,
         type,
         subject: context.subject,
         gradeLevel: context.gradeLevel
       });
+      setCurrentHistoryId(historyItem.id);
+      setGeneratedActivities([]);
 
       setStep(AppStep.EDITOR);
     } catch (err: any) {
@@ -168,6 +198,7 @@ export default function App() {
         subject: context.subject,
         gradeLevel: context.gradeLevel
       });
+      setCurrentHistoryId(historyItem.id);
       console.log('Refined version saved to history:', historyItem);
     } catch (e) {
       console.error('Error saving refined version to history', e);
@@ -182,11 +213,15 @@ export default function App() {
     setResultContent('');
     setAnalysisData(null);
     setError(null);
+    setCurrentHistoryId(null);
+    setGeneratedActivities([]);
   };
 
   const handleHistorySelect = (item: HistoryItem) => {
     setResultContent(item.content);
     setCurrentDocType(item.type);
+    setCurrentHistoryId(item.id);
+    setGeneratedActivities(item.activities || []);
     setContext(prev => ({
       ...prev,
       subject: item.subject,
@@ -214,13 +249,25 @@ export default function App() {
     </div>
   );
 
-  const stepOrder = [AppStep.UPLOAD, AppStep.CONTEXT, AppStep.PLANNING, AppStep.SELECT_TYPE, AppStep.EDITOR];
+  const stepOrder = [AppStep.UPLOAD, AppStep.CONTEXT, AppStep.PLANNING, AppStep.SELECT_TYPE, AppStep.EDITOR, AppStep.ACTIVITIES_SELECTION, AppStep.ACTIVITIES_RESULTS];
   const currentStepIndex = stepOrder.indexOf(step);
 
   const canNavigateTo = (targetStep: AppStep) => {
     const targetIndex = stepOrder.indexOf(targetStep);
+    
+    // For specific steps that can only be reached if something exists
+    if (targetStep === AppStep.ACTIVITIES_SELECTION) {
+      if (currentDocType !== DocType.SITUACION) return false;
+      return currentStepIndex >= stepOrder.indexOf(AppStep.EDITOR);
+    }
+    
+    if (targetStep === AppStep.ACTIVITIES_RESULTS) {
+      if (currentDocType !== DocType.SITUACION) return false;
+      return generatedActivities.length > 0 && currentStepIndex >= stepOrder.indexOf(AppStep.EDITOR);
+    }
+
     // Can navigate back to any previous step, or stay on current
-    return targetIndex < currentStepIndex;
+    return targetIndex < currentStepIndex || targetStep === step;
   };
 
   const handleStepClick = (targetStep: AppStep) => {
@@ -301,14 +348,44 @@ export default function App() {
               <span className="hidden sm:inline">Tipo</span>
             </button>
             <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
-            <div className={`flex flex-col items-center gap-1 ${step === AppStep.EDITOR ? 'text-indigo-600' : 'text-slate-300'}`}>
-              <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.EDITOR ? 'border-indigo-600' : 'border-slate-200'}`}>5</span>
+            <button 
+              onClick={() => handleStepClick(AppStep.EDITOR)}
+              disabled={!canNavigateTo(AppStep.EDITOR)}
+              className={`flex flex-col items-center gap-1 transition-all ${step === AppStep.EDITOR ? 'text-indigo-600' : canNavigateTo(AppStep.EDITOR) ? 'text-slate-600 hover:text-indigo-400' : 'text-slate-300 cursor-default'}`}
+            >
+              <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.EDITOR ? 'border-indigo-600' : canNavigateTo(AppStep.EDITOR) ? 'border-slate-400' : 'border-slate-200'}`}>5</span>
               <span className="hidden sm:inline">Resultado</span>
-            </div>
+            </button>
+            {currentDocType === DocType.SITUACION && (
+              <>
+                <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
+                <button 
+                  onClick={() => handleStepClick(AppStep.ACTIVITIES_SELECTION)}
+                  disabled={!canNavigateTo(AppStep.ACTIVITIES_SELECTION)}
+                  className={`flex flex-col items-center gap-1 transition-all ${step === AppStep.ACTIVITIES_SELECTION ? 'text-indigo-600' : canNavigateTo(AppStep.ACTIVITIES_SELECTION) ? 'text-slate-600 hover:text-indigo-400' : 'text-slate-300 cursor-default'}`}
+                >
+                  <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.ACTIVITIES_SELECTION ? 'border-indigo-600' : canNavigateTo(AppStep.ACTIVITIES_SELECTION) ? 'border-slate-400' : 'border-slate-200'}`}>6</span>
+                  <span className="hidden sm:inline">Sel. Actividades</span>
+                </button>
+              </>
+            )}
+            {currentDocType === DocType.SITUACION && generatedActivities.length > 0 && (
+              <>
+                <div className="w-8 h-[2px] bg-slate-200 mb-6"></div>
+                <button 
+                  onClick={() => handleStepClick(AppStep.ACTIVITIES_RESULTS)}
+                  disabled={!canNavigateTo(AppStep.ACTIVITIES_RESULTS)}
+                  className={`flex flex-col items-center gap-1 transition-all ${step === AppStep.ACTIVITIES_RESULTS ? 'text-indigo-600' : canNavigateTo(AppStep.ACTIVITIES_RESULTS) ? 'text-slate-600 hover:text-indigo-400' : 'text-slate-300 cursor-default'}`}
+                >
+                  <span className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === AppStep.ACTIVITIES_RESULTS ? 'border-indigo-600' : canNavigateTo(AppStep.ACTIVITIES_RESULTS) ? 'border-slate-400' : 'border-slate-200'}`}>7</span>
+                  <span className="hidden sm:inline">Actividades</span>
+                </button>
+              </>
+            )}
           </div>
         )}
 
-        <div className={step === AppStep.EDITOR ? 'w-full' : 'max-w-4xl mx-auto'}>
+        <div className={(step === AppStep.EDITOR || step === AppStep.ACTIVITIES_RESULTS) ? 'w-full' : 'max-w-4xl mx-auto'}>
           {isAnalyzing ? (
             AnalysisLoadingView
           ) : (
@@ -378,16 +455,33 @@ export default function App() {
                   gradeLevel={context.gradeLevel}
                   subject={context.subject}
                   teacherContext={context}
-                  docType={currentDocType}
-                  onDevelopActivities={() => setStep(AppStep.ACTIVITIES)}
+                  docType={currentDocType || undefined}
+                  onDevelopActivities={() => setStep(AppStep.ACTIVITIES_SELECTION)}
+                  generatedActivities={generatedActivities}
+                  onUpdateContent={setResultContent}
+                  onExportJSON={handleExportJSON}
                 />
               )}
-              {step === AppStep.ACTIVITIES && (
-                <ActivitiesStep 
+              {step === AppStep.ACTIVITIES_SELECTION && (
+                <ActivitiesSelection 
                   markdownContent={resultContent}
                   pdfBase64={pdfBase64}
                   context={context}
                   onBack={() => setStep(AppStep.EDITOR)}
+                  onActivitiesGenerated={(acts) => {
+                    setGeneratedActivities(acts);
+                    if (currentHistoryId) {
+                      updateHistoryItem(currentHistoryId, { activities: acts });
+                    }
+                    setStep(AppStep.ACTIVITIES_RESULTS);
+                  }}
+                />
+              )}
+              {step === AppStep.ACTIVITIES_RESULTS && (
+                <ActivitiesResults 
+                  generatedResults={generatedActivities}
+                  onBack={() => setStep(AppStep.ACTIVITIES_SELECTION)}
+                  onExportJSON={handleExportJSON}
                 />
               )}
             </>

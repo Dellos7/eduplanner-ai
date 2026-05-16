@@ -7,7 +7,8 @@ export enum AppStep {
   GENERATING = 'GENERATING',
   EDITOR = 'EDITOR',
   HISTORY = 'HISTORY',
-  ACTIVITIES = 'ACTIVITIES',
+  ACTIVITIES_SELECTION = 'ACTIVITIES_SELECTION',
+  ACTIVITIES_RESULTS = 'ACTIVITIES_RESULTS',
 }
 
 export enum DocType {
@@ -65,4 +66,12 @@ export interface HistoryItem {
   date: string;
   subject: string;
   gradeLevel: string;
+  activities?: GeneratedActivity[];
+}
+
+export interface GeneratedActivity {
+  id: string;
+  saTitle: string;
+  activityName: string;
+  content: string;
 }

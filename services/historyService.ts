@@ -16,6 +16,16 @@ export const saveToHistory = (item: Omit<HistoryItem, 'id' | 'date'>): HistoryIt
   return newItem;
 };
 
+export const updateHistoryItem = (id: string, updates: Partial<HistoryItem>): void => {
+  const history = getHistory();
+  const index = history.findIndex(item => item.id === id);
+  if (index !== -1) {
+    history[index] = { ...history[index], ...updates };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    console.log('History item updated:', id);
+  }
+};
+
 export const getHistory = (): HistoryItem[] => {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) return [];
