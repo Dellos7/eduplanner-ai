@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { GeneratedActivity } from '../types';
-import { ArrowLeft, FileDown, FileType, Printer, Copy, Check, FileJson } from 'lucide-react';
+import { ArrowLeft, FileDown, FileType, Printer, Copy, Check, FileJson, MessageSquare, Loader2, Sparkles, Send } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -8,11 +8,14 @@ interface ActivitiesResultsProps {
   generatedResults: GeneratedActivity[];
   onBack: () => void;
   onExportJSON: () => void;
+  onRefine: (feedback: string) => Promise<void>;
 }
 
-const ActivitiesResults: React.FC<ActivitiesResultsProps> = ({ generatedResults, onBack, onExportJSON }) => {
+const ActivitiesResults: React.FC<ActivitiesResultsProps> = ({ generatedResults, onBack, onExportJSON, onRefine }) => {
   const [isCopied, setIsCopied] = useState<Record<string, boolean>>({});
   const [isCopiedFull, setIsCopiedFull] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [isRefining, setIsRefining] = useState(false);
 
   const handleCopyMD = async () => {
     try {
@@ -21,6 +24,22 @@ const ActivitiesResults: React.FC<ActivitiesResultsProps> = ({ generatedResults,
       setTimeout(() => setIsCopiedFull(false), 2000);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleRefineSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim() || isRefining) return;
+    
+    setIsRefining(true);
+    const feedback = chatInput;
+    setChatInput('');
+    try {
+      await onRefine(feedback);
+    } catch (err) {
+      alert("Error al intentar ajustar las actividades.");
+    } finally {
+      setIsRefining(false);
     }
   };
 
@@ -89,7 +108,14 @@ const ActivitiesResults: React.FC<ActivitiesResultsProps> = ({ generatedResults,
         </div>
         
         <div className="flex-1 overflow-y-auto p-6 md:p-12 custom-scrollbar bg-white relative min-h-[500px]">
-          <div id="activities-preview" className="space-y-16">
+          {isRefining && (
+            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center animate-fade-in">
+              <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+              <h3 className="text-xl font-bold text-slate-800">Ajustando Actividades con IA...</h3>
+              <p className="text-slate-500 mt-2 max-w-md text-center">Analizando tus instrucciones y aplicando los cambios a todas las actividades. Esto puede tardar unos segundos.</p>
+            </div>
+          )}
+          <div id="activities-preview" className={`space-y-16 ${isRefining ? 'opacity-30 pointer-events-none' : ''}`}>
             {generatedResults.map((result) => (
               <div key={result.id} className="relative group">
                 <button 
@@ -147,6 +173,37 @@ const ActivitiesResults: React.FC<ActivitiesResultsProps> = ({ generatedResults,
             <button onClick={onExportJSON} className="flex items-center justify-center w-full gap-2 px-4 py-3 text-sm font-bold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-lg transition-all shadow-sm mt-2" title="Exportar todo el proyecto incluyendo actividades a JSON para guardar copia de seguridad">
               <FileJson className="w-5 h-5" /> Exportar todo el proyecto a JSON
             </button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xl flex flex-col shrink-0 mt-6">
+          <div className="p-6 border-b border-slate-100 flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-xl font-bold text-slate-800">Ajustar con IA</h2>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-xl text-xs text-indigo-800 leading-relaxed flex gap-2 italic">
+              <Sparkles className="w-5 h-5 shrink-0 text-amber-500" />
+              <span>Ej: "Añade más ejercicios prácticos", "Simplifica el lenguaje" o "Incluye más criterios de evaluación."</span>
+            </div>
+            <form onSubmit={handleRefineSubmit} className="space-y-3">
+              <textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Escribe cómo quieres modificar las actividades..."
+                className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none text-sm bg-slate-50 transition-all custom-scrollbar"
+                rows={4}
+                disabled={isRefining}
+              />
+              <button
+                type="submit"
+                disabled={isRefining || !chatInput.trim()}
+                className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isRefining ? 'Aplicando cambios...' : 'Ajustar Actividades'}
+                {isRefining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              </button>
+            </form>
           </div>
         </div>
       </aside>

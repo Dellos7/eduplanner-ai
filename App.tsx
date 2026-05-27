@@ -10,7 +10,7 @@ import ActivitiesSelection from './components/ActivitiesSelection';
 import ActivitiesResults from './components/ActivitiesResults';
 import History from './components/History';
 import { AppStep, DocType, TeacherContext, CurriculumAnalysis, HistoryItem, GeneratedActivity } from './types';
-import { generateEducationalDocument, analyzePdfStructure, refineDocument } from './services/geminiService';
+import { generateEducationalDocument, analyzePdfStructure, refineDocument, refineActivities } from './services/geminiService';
 import { saveToHistory, updateHistoryItem } from './services/historyService';
 import { Loader2, AlertCircle, FileSearch, Key, Clock } from 'lucide-react';
 
@@ -173,6 +173,19 @@ export default function App() {
       setStep(AppStep.SELECT_TYPE);
     }
   };
+
+  const handleRefineActivities = React.useCallback(async (feedback: string): Promise<void> => {
+    try {
+      const refinedActs = await refineActivities(generatedActivities, feedback, context.language);
+      setGeneratedActivities(refinedActs);
+      if (currentHistoryId) {
+        updateHistoryItem(currentHistoryId, { activities: refinedActs });
+      }
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
+  }, [generatedActivities, context.language, currentHistoryId]);
 
   const handleRefine = React.useCallback(async (feedback: string, currentContent: string): Promise<string> => {
     console.log('handleRefine called with feedback:', feedback);
@@ -482,6 +495,7 @@ export default function App() {
                   generatedResults={generatedActivities}
                   onBack={() => setStep(AppStep.ACTIVITIES_SELECTION)}
                   onExportJSON={handleExportJSON}
+                  onRefine={handleRefineActivities}
                 />
               )}
             </>

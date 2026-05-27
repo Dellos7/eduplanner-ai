@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { DocType, TeacherContext, CurriculumAnalysis } from "../types";
+import { DocType, TeacherContext, CurriculumAnalysis, GeneratedActivity } from "../types";
 
 const getAiClient = () => {
   const manualKey = localStorage.getItem('GEMINI_API_KEY');
@@ -315,6 +315,53 @@ export const generateActivityDetails = async (
     });
 
     return response.text || "Error en generación de la actividad.";
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+};
+
+export const refineActivities = async (
+  currentActivities: GeneratedActivity[],
+  feedback: string,
+  language: string
+): Promise<GeneratedActivity[]> => {
+  const ai = getAiClient();
+  const langInstruction = `EL DOCUMENTO DEBE SEGUIR ESTANDO EN: ${language}.`;
+  
+  const contentToRefine = JSON.stringify(currentActivities, null, 2);
+
+  const prompt = `
+    ${langInstruction}
+    Has generado previamente los siguientes desarrollos de actividades (en formato JSON):
+    ---
+    ${contentToRefine}
+    ---
+    El usuario solicita los siguientes cambios o mejoras sobre el desarrollo de las actividades:
+    "${feedback}"
+
+    REGENERA la lista de actividades en formato JSON incorporando estas peticiones. 
+    MANTÉN la estructura JSON exacta: un array de objetos con las propiedades "id", "saTitle", "activityName" y "content".
+    El contenido ("content") debe seguir siendo Markdown con todos sus apartados bien estructurados y rúbricas.
+    Devuelve ÚNICAMENTE el array JSON válido, sin delimitadores como \`\`\`json.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: {
+        parts: [
+          { text: prompt },
+        ],
+      },
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+      },
+    });
+
+    const resultText = response.text || "[]";
+    const cleanedText = resultText.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
+    return JSON.parse(cleanedText) as GeneratedActivity[];
   } catch (error) {
     console.error(error);
     throw error;
