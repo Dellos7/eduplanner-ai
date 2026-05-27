@@ -137,7 +137,8 @@ const ActivitiesResults: React.FC<ActivitiesResultsProps> = ({ generatedResults,
 
       {/* Right Panel: Export */}
       <aside className="w-full lg:w-96 shrink-0 lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
-        <div className="flex flex-col bg-white rounded-2xl border border-slate-200 shadow-xl shrink-0">
+        <div className="flex flex-col gap-4 h-full overflow-y-auto custom-scrollbar pb-4 pr-2">
+          <div className="flex flex-col bg-white rounded-2xl border border-slate-200 shadow-xl shrink-0">
           <div className="p-6 border-b border-slate-100 flex items-center gap-2">
              <FileDown className="w-6 h-6 text-indigo-600" />
              <h2 className="text-xl font-bold text-slate-800">Exportar</h2>
@@ -176,7 +177,7 @@ const ActivitiesResults: React.FC<ActivitiesResultsProps> = ({ generatedResults,
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xl flex flex-col shrink-0 mt-6">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xl flex flex-col shrink-0">
           <div className="p-6 border-b border-slate-100 flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-indigo-600" />
             <h2 className="text-xl font-bold text-slate-800">Ajustar con IA</h2>
@@ -205,6 +206,7 @@ const ActivitiesResults: React.FC<ActivitiesResultsProps> = ({ generatedResults,
               </button>
             </form>
           </div>
+        </div>
         </div>
       </aside>
     </div>
