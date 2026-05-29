@@ -120,7 +120,7 @@ export const generateEducationalDocument = async (
       const estimatedTotalSessions = context.weeklyHours * 35; // Aproximadamente 35 semanas lectivas
       saCountText = "todas las necesarias para el curso completo (decide tú el número ideal basándote en la carga lectiva)";
       ideasPrompt = `\n\nIMPORTANTE: Ignora el número de SAs manual y genera una planificación completa anual.
-      Un curso escolar tiene aproximadamente 35 semanas lectivas. Dado que esta asignatura tiene ${context.weeklyHours} sesiones semanales, el total de sesiones del curso debe rondar las ${estimatedTotalSessions} sesiones.
+      Un curso escolar tiene aproximadamente 35 semanas lectivas. Dado que esta asignatura tiene ${context.weeklyHours} horas semanales (cada hora equivale a una sesión de 55 minutos), el total de sesiones del curso debe rondar las ${estimatedTotalSessions} sesiones.
       Asegúrate de generar suficientes Situaciones de Aprendizaje y asignarles un número de sesiones realista (y suficientes actividades en cada una) para que la suma total se acerque a esta cifra (${estimatedTotalSessions} sesiones).`;
       if (context.fullCourseIdeas && context.fullCourseIdeas.trim()) {
         ideasPrompt += `\nTen en cuenta estas ideas generales para el curso: ${context.fullCourseIdeas.trim()}\n`;
@@ -169,6 +169,7 @@ export const generateEducationalDocument = async (
       6. Los Saberes Básicos deben indicar siempre explícitamente a qué Bloque Curricular pertenecen.
       7. Debes incluir una tabla resumen al principio y una matriz de competencias al final. Traduce los títulos de estas tablas al idioma solicitado.
       8. ${context.generateFullCourse ? 'Asegúrate de repartir TODAS las competencias específicas y saberes básicos de la asignatura entre todas las situaciones de aprendizaje generadas.' : 'No fuerces la inclusión de competencias específicas o saberes básicos que no tengan sentido con la temática de la situación de aprendizaje. Es normal que en un número reducido de situaciones no se cubran todas las competencias o saberes del currículo.'}
+      9. Ten siempre en cuenta que cada "sesión" tiene una duración estricta y cronometrada de 55 minutos. No planifiques actividades que excedan este tiempo sin dividirlas en varias sesiones.
       
       ESTRUCTURA EXACTA DEL DOCUMENTO:
 
@@ -272,6 +273,8 @@ export const generateActivityDetails = async (
     Actividad a desarrollar: "${activityInfo.activityName}"
     Instrucciones específicas del usuario: "${activityInfo.instructions || 'Ninguna instrucción específica, desarrolla la actividad de forma creativa y alineada con la programación.'}"
     
+    MUY IMPORTANTE: Recuerda que todas las "sesiones" del curso duran estrictamente 55 minutos. Si esta actividad requiere una sesión entera, asegúrate de que haya tareas y tiempos distribuidos realísticamente para rellenar esos 55 minutos. Si requiere varias, indícalo. No planees nada imposible de hacer en 55 minutos.
+
     Escribe el desarrollo completo de la actividad en formato Markdown asegurándote de incluir, AL MENOS, los siguientes apartados:
     
     # ${activityInfo.activityName}

@@ -181,7 +181,7 @@ const ContextForm: React.FC<ContextFormProps> = ({ initialData, analysisData, on
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
               <Clock className="w-4 h-4 text-slate-400" />
-              Horas Semanales
+              Horas Semanales (sesiones de 55 min)
             </label>
             <input
               type="number"
