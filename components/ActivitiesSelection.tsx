@@ -128,7 +128,7 @@ const ActivitiesSelection: React.FC<ActivitiesSelectionProps> = ({ markdownConte
           </div>
         ) : (
           <div className="space-y-8">
-            {Object.entries(groupedActivities).map(([saTitle, acts]) => {
+            {Object.entries(groupedActivities).map(([saTitle, acts], saIndex) => {
               const allSelected = acts.every(a => selectedIds.has(a.id));
               const someSelected = acts.some(a => selectedIds.has(a.id));
               
@@ -139,11 +139,11 @@ const ActivitiesSelection: React.FC<ActivitiesSelectionProps> = ({ markdownConte
                       <button className={`text-indigo-600`}>
                         {allSelected ? <CheckSquare className="w-5 h-5" /> : someSelected ? <Square className="w-5 h-5 text-indigo-400 fill-indigo-100" /> : <Square className="w-5 h-5 text-slate-400" />}
                       </button>
-                      <h3 className="font-bold text-slate-800">{saTitle}</h3>
+                      <h3 className="font-bold text-slate-800">SdA {saIndex + 1}: {saTitle}</h3>
                     </div>
                   </div>
                   <div className="p-4 space-y-4">
-                    {acts.map(act => {
+                    {acts.map((act, actIndex) => {
                       const isSelected = selectedIds.has(act.id);
                       return (
                         <div key={act.id} className={`p-4 rounded-lg border transition-colors ${isSelected ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-100 bg-white'}`}>
@@ -152,7 +152,7 @@ const ActivitiesSelection: React.FC<ActivitiesSelectionProps> = ({ markdownConte
                               {isSelected ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
                             </button>
                             <div className="flex-1">
-                              <h4 className={`font-medium ${isSelected ? 'text-indigo-900' : 'text-slate-700'} cursor-pointer`} onClick={() => toggleSelection(act.id)}>{act.activityName}</h4>
+                              <h4 className={`font-medium ${isSelected ? 'text-indigo-900' : 'text-slate-700'} cursor-pointer`} onClick={() => toggleSelection(act.id)}>Actividad {actIndex + 1}: {act.activityName}</h4>
                               
                               {isSelected && (
                                 <div className="mt-3 animate-fade-in">

@@ -53,6 +53,7 @@ export default function App() {
   const [analysisData, setAnalysisData] = useState<CurriculumAnalysis | null>(null);
   const [resultContent, setResultContent] = useState<string>('');
   const [currentDocType, setCurrentDocType] = useState<DocType | null>(null);
+  const [currentDocTitle, setCurrentDocTitle] = useState<string>('');
   const [generatedActivities, setGeneratedActivities] = useState<GeneratedActivity[]>([]);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -147,8 +148,13 @@ export default function App() {
     setStep(AppStep.SELECT_TYPE);
   };
 
-  const handleDocTypeSelect = async (type: DocType) => {
+  const handleDocTypeSelect = async (type: DocType, customTitle?: string) => {
     setCurrentDocType(type);
+    
+    const defaultTitle = type === DocType.PROPUESTA ? 'Propuesta Pedagógica' : 'Situaciones de Aprendizaje';
+    const finalTitle = customTitle?.trim() || defaultTitle;
+    setCurrentDocTitle(finalTitle);
+
     setStep(AppStep.GENERATING);
     setError(null);
 
@@ -158,7 +164,7 @@ export default function App() {
       
       // Save to history
       const historyItem = saveToHistory({
-        title: type === DocType.PROPUESTA ? 'Propuesta Pedagógica' : 'Situaciones de Aprendizaje',
+        title: finalTitle,
         content,
         type,
         subject: context.subject,
@@ -205,7 +211,7 @@ export default function App() {
     try {
       const timeStr = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
       const historyItem = saveToHistory({
-        title: `${currentDocType === DocType.PROPUESTA ? 'Propuesta Pedagógica' : 'Situaciones de Aprendizaje'} (Refinado ${timeStr})`,
+        title: `${currentDocTitle || (currentDocType === DocType.PROPUESTA ? 'Propuesta Pedagógica' : 'Situaciones de Aprendizaje')} (Refinado ${timeStr})`,
         content: newContent,
         type: currentDocType,
         subject: context.subject,
@@ -233,6 +239,7 @@ export default function App() {
   const handleHistorySelect = (item: HistoryItem) => {
     setResultContent(item.content);
     setCurrentDocType(item.type);
+    setCurrentDocTitle(item.title);
     setCurrentHistoryId(item.id);
     setGeneratedActivities(item.activities || []);
     setContext(prev => ({
@@ -459,7 +466,7 @@ export default function App() {
               {step === AppStep.EDITOR && (
                 <Editor 
                   initialContent={resultContent} 
-                  docTitle={currentDocType === DocType.PROPUESTA ? 'Propuesta Pedagógica' : 'Situaciones de Aprendizaje'} 
+                  docTitle={currentDocTitle || (currentDocType === DocType.PROPUESTA ? 'Propuesta Pedagógica' : 'Situaciones de Aprendizaje')} 
                   onRestart={handleRestart} 
                   onBack={() => setStep(AppStep.SELECT_TYPE)}
                   analysisData={analysisData} 

@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DocType } from '../types';
-import { BookMarked, Lightbulb, ArrowLeft } from 'lucide-react';
+import { BookMarked, Lightbulb, ArrowLeft, Tag } from 'lucide-react';
 
 interface DocTypeSelectorProps {
-  onSelect: (type: DocType) => void;
+  onSelect: (type: DocType, customTitle?: string) => void;
   onBack: () => void;
 }
 
 const DocTypeSelector: React.FC<DocTypeSelectorProps> = ({ onSelect, onBack }) => {
+  const [customTitle, setCustomTitle] = useState('');
+
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div className="text-center mb-10">
@@ -15,10 +17,24 @@ const DocTypeSelector: React.FC<DocTypeSelectorProps> = ({ onSelect, onBack }) =
         <p className="text-slate-500 mt-2">La IA utilizará el currículum subido y tus preferencias.</p>
       </div>
 
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-8">
+        <label className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-2">
+          <Tag className="w-4 h-4 text-slate-400" />
+          Nombre del documento (para identificarlo en el historial)
+        </label>
+        <input
+          type="text"
+          value={customTitle}
+          onChange={(e) => setCustomTitle(e.target.value)}
+          placeholder="Ej: Programación 2º ESO - Proyecto Final"
+          className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+        />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Card 1: Propuesta */}
         <button
-          onClick={() => onSelect(DocType.PROPUESTA)}
+          onClick={() => onSelect(DocType.PROPUESTA, customTitle)}
           className="group relative bg-white p-8 rounded-2xl border border-slate-200 hover:border-indigo-500 shadow-sm hover:shadow-xl transition-all duration-300 text-left flex flex-col h-full"
         >
           <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -37,7 +53,7 @@ const DocTypeSelector: React.FC<DocTypeSelectorProps> = ({ onSelect, onBack }) =
 
         {/* Card 2: Situaciones */}
         <button
-          onClick={() => onSelect(DocType.SITUACION)}
+          onClick={() => onSelect(DocType.SITUACION, customTitle)}
           className="group relative bg-white p-8 rounded-2xl border border-slate-200 hover:border-emerald-500 shadow-sm hover:shadow-xl transition-all duration-300 text-left flex flex-col h-full"
         >
           <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
