@@ -3,6 +3,8 @@ import { GeneratedActivity } from '../types';
 import { ArrowLeft, FileDown, FileType, Printer, Copy, Check, FileJson, MessageSquare, Loader2, Sparkles, Send } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { parseGeminiError, GeminiErrorInfo } from '../services/geminiErrors';
+import ErrorMessage from './ErrorMessage';
 
 interface ActivitiesResultsProps {
   generatedResults: GeneratedActivity[];
@@ -16,6 +18,7 @@ const ActivitiesResults: React.FC<ActivitiesResultsProps> = ({ generatedResults,
   const [isCopiedFull, setIsCopiedFull] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [isRefining, setIsRefining] = useState(false);
+  const [refineError, setRefineError] = useState<GeminiErrorInfo | null>(null);
 
   const handleCopyMD = async () => {
     try {
@@ -31,13 +34,16 @@ const ActivitiesResults: React.FC<ActivitiesResultsProps> = ({ generatedResults,
     e.preventDefault();
     if (!chatInput.trim() || isRefining) return;
     
+    setRefineError(null);
     setIsRefining(true);
     const feedback = chatInput;
     setChatInput('');
     try {
       await onRefine(feedback);
     } catch (err) {
-      alert("Error al intentar ajustar las actividades.");
+      console.error(err);
+      setRefineError(parseGeminiError(err));
+      setChatInput(feedback); // No se pierde lo escrito por el docente.
     } finally {
       setIsRefining(false);
     }
@@ -187,6 +193,11 @@ const ActivitiesResults: React.FC<ActivitiesResultsProps> = ({ generatedResults,
               <Sparkles className="w-5 h-5 shrink-0 text-amber-500" />
               <span>Ej: "Añade más ejercicios prácticos", "Simplifica el lenguaje" o "Incluye más criterios de evaluación."</span>
             </div>
+            {refineError && (
+              <div className="mb-4">
+                <ErrorMessage info={refineError} onDismiss={() => setRefineError(null)} />
+              </div>
+            )}
             <form onSubmit={handleRefineSubmit} className="space-y-3">
               <textarea
                 value={chatInput}

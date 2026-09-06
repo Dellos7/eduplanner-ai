@@ -3,6 +3,8 @@ import { extractActivitiesFromMarkdown, ParsedActivity } from '../utils/markdown
 import { ActivityPromptInfo, generateActivityDetails } from '../services/geminiService';
 import { TeacherContext, GeneratedActivity } from '../types';
 import { ChevronDown, ChevronUp, CheckSquare, Square, ArrowLeft, Loader2, Zap } from 'lucide-react';
+import { parseGeminiError, GeminiErrorInfo } from '../services/geminiErrors';
+import ErrorMessage from './ErrorMessage';
 
 interface ActivitiesSelectionProps {
   markdownContent: string;
@@ -18,7 +20,8 @@ const ActivitiesSelection: React.FC<ActivitiesSelectionProps> = ({ markdownConte
   const [instructions, setInstructions] = useState<Record<string, string>>({});
   
   const [isGenerating, setIsGenerating] = useState(false);
-  
+  const [error, setError] = useState<GeminiErrorInfo | null>(null);
+
   useEffect(() => {
     const extracted = extractActivitiesFromMarkdown(markdownContent);
     setActivities(extracted);
@@ -53,7 +56,8 @@ const ActivitiesSelection: React.FC<ActivitiesSelectionProps> = ({ markdownConte
 
   const handleGenerate = async () => {
     if (selectedIds.size === 0) return;
-    
+
+    setError(null);
     setIsGenerating(true);
     const results: GeneratedActivity[] = [];
     
@@ -80,7 +84,7 @@ const ActivitiesSelection: React.FC<ActivitiesSelectionProps> = ({ markdownConte
       onActivitiesGenerated(results);
     } catch (e) {
       console.error(e);
-      alert("Hubo un error al generar las actividades. Por favor, reintenta.");
+      setError(parseGeminiError(e));
       setIsGenerating(false);
     }
   };
@@ -122,6 +126,12 @@ const ActivitiesSelection: React.FC<ActivitiesSelectionProps> = ({ markdownConte
       </div>
       
       <div className="p-8">
+        {error && (
+          <div className="mb-6">
+            <ErrorMessage info={error} onDismiss={() => setError(null)} onRetry={handleGenerate} />
+          </div>
+        )}
+
         {!hasActivities ? (
           <div className="text-center py-12 text-slate-500">
             No se encontraron actividades en el documento generado.

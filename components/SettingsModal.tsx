@@ -1,6 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Key, CheckCircle, AlertCircle, ExternalLink, StepForward, LogIn, MousePointer2, Copy } from 'lucide-react';
+import { X, Key, CheckCircle, AlertCircle, ExternalLink, StepForward, LogIn, MousePointer2, Copy, Cpu, RefreshCw, Loader2 } from 'lucide-react';
+import { CURATED_MODELS, GeminiModelOption, getSelectedModel, setSelectedModel, fetchAvailableModels, DEFAULT_MODEL } from '../services/modelService';
+import { parseGeminiError, GeminiErrorInfo } from '../services/geminiErrors';
+import ErrorMessage from './ErrorMessage';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -8,14 +11,55 @@ interface SettingsModalProps {
   onSave?: () => void;
 }
 
+const CUSTOM_OPTION = '__custom__';
+
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }) => {
   const [apiKey, setApiKey] = useState('');
   const [isSaved, setIsSaved] = useState(false);
 
+  const [model, setModel] = useState<string>(DEFAULT_MODEL);
+  const [customModel, setCustomModel] = useState('');
+  const [useCustomModel, setUseCustomModel] = useState(false);
+  const [detectedModels, setDetectedModels] = useState<GeminiModelOption[]>([]);
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [detectionError, setDetectionError] = useState<GeminiErrorInfo | null>(null);
+  const [detectionMessage, setDetectionMessage] = useState<string | null>(null);
+
   useEffect(() => {
+    if (!isOpen) return;
+
     const savedKey = localStorage.getItem('GEMINI_API_KEY');
     if (savedKey) setApiKey(savedKey);
+
+    const savedModel = getSelectedModel();
+    const isKnown = CURATED_MODELS.some(m => m.id === savedModel);
+    setModel(savedModel);
+    setUseCustomModel(!isKnown);
+    setCustomModel(isKnown ? '' : savedModel);
+    setDetectionError(null);
+    setDetectionMessage(null);
   }, [isOpen]);
+
+  const effectiveModel = useCustomModel ? customModel.trim() : model;
+
+  const handleDetectModels = async () => {
+    setIsDetecting(true);
+    setDetectionError(null);
+    setDetectionMessage(null);
+    try {
+      const models = await fetchAvailableModels(apiKey);
+      setDetectedModels(models);
+      if (models.length === 0) {
+        setDetectionMessage('La API no ha devuelto ningún modelo de texto para esta clave.');
+      } else {
+        setDetectionMessage(`${models.length} modelos disponibles para tu clave.`);
+      }
+    } catch (e) {
+      setDetectionError(parseGeminiError(e));
+    } finally {
+      setIsDetecting(false);
+    }
+  };
 
   const handleSave = () => {
     if (apiKey.trim()) {
@@ -23,6 +67,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
     } else {
       localStorage.removeItem('GEMINI_API_KEY');
     }
+
+    setSelectedModel(effectiveModel || DEFAULT_MODEL);
+
     setIsSaved(true);
     if (onSave) onSave();
     setTimeout(() => {
@@ -30,6 +77,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
       onClose();
     }, 1500);
   };
+
+  // Los detectados que no estén ya en la lista sugerida.
+  const extraDetected = detectedModels.filter(d => !CURATED_MODELS.some(c => c.id === d.id));
+  const selectedHint = CURATED_MODELS.find(m => m.id === effectiveModel)?.hint
+    || detectedModels.find(m => m.id === effectiveModel)?.hint;
 
   if (!isOpen) return null;
 
@@ -39,7 +91,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <Key className="w-5 h-5 text-indigo-600" />
-            Configuración de API
+            Configuración de API y modelo
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
             <X className="w-6 h-6" />
@@ -59,6 +111,84 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
             <p className="text-xs text-slate-500">
               La clave se guardará localmente. Si está vacía, se usará la clave del sistema.
             </p>
+          </div>
+
+          {/* Selección del modelo de Gemini */}
+          <div className="space-y-3 border-t border-slate-100 pt-6">
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-indigo-600" />
+                Modelo de Gemini
+              </label>
+              <button
+                type="button"
+                onClick={handleDetectModels}
+                disabled={isDetecting}
+                className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 disabled:text-slate-400 transition-colors"
+                title="Consulta a Google qué modelos admite tu clave"
+              >
+                {isDetecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                {isDetecting ? 'Consultando...' : 'Detectar modelos disponibles'}
+              </button>
+            </div>
+
+            <select
+              value={useCustomModel ? CUSTOM_OPTION : model}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === CUSTOM_OPTION) {
+                  setUseCustomModel(true);
+                  if (!customModel) setCustomModel(model);
+                } else {
+                  setUseCustomModel(false);
+                  setModel(value);
+                }
+              }}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
+            >
+              <optgroup label="Modelos sugeridos">
+                {CURATED_MODELS.map(m => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </optgroup>
+              {extraDetected.length > 0 && (
+                <optgroup label="Detectados para tu clave">
+                  {extraDetected.map(m => (
+                    <option key={m.id} value={m.id}>{m.label} ({m.id})</option>
+                  ))}
+                </optgroup>
+              )}
+              <option value={CUSTOM_OPTION}>Otro modelo (escribir identificador)…</option>
+            </select>
+
+            {useCustomModel && (
+              <input
+                type="text"
+                value={customModel}
+                onChange={(e) => setCustomModel(e.target.value)}
+                placeholder="Ej: gemini-2.5-flash"
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm"
+              />
+            )}
+
+            {selectedHint && !useCustomModel && (
+              <p className="text-xs text-slate-500 leading-relaxed">{selectedHint}</p>
+            )}
+
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Modelo activo: <span className="font-mono text-slate-600">{effectiveModel || DEFAULT_MODEL}</span>.
+              Los modelos Pro redactan mejor, pero consumen mucha más cuota; los Flash son más rápidos y baratos.
+            </p>
+
+            {detectionMessage && !detectionError && (
+              <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg p-2.5">
+                {detectionMessage}
+              </p>
+            )}
+
+            {detectionError && (
+              <ErrorMessage info={detectionError} onDismiss={() => setDetectionError(null)} />
+            )}
           </div>
 
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">

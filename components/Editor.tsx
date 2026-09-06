@@ -6,7 +6,9 @@ import remarkGfm from 'remark-gfm';
 import domtoimage from 'dom-to-image-more';
 import jsPDF from 'jspdf';
 import { CurriculumAnalysis, TeacherContext, DocType, GeneratedActivity } from '../types';
+import { parseGeminiError, GeminiErrorInfo } from '../services/geminiErrors';
 import CurricularReference from './CurricularReference';
+import ErrorMessage from './ErrorMessage';
 
 interface EditorProps {
   initialContent: string;
@@ -86,6 +88,7 @@ const Editor: React.FC<EditorProps> = ({
   const [expandedSection, setExpandedSection] = useState<number | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [isRefining, setIsRefining] = useState(false);
+  const [refineError, setRefineError] = useState<GeminiErrorInfo | null>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   
@@ -196,6 +199,7 @@ const Editor: React.FC<EditorProps> = ({
   const handleRefineSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || isRefining) return;
+    setRefineError(null);
     setIsRefining(true);
     const feedback = chatInput;
     setChatInput('');
@@ -205,7 +209,9 @@ const Editor: React.FC<EditorProps> = ({
       setContent(newContent);
       setMode('preview');
     } catch (err) {
-      alert("Error al intentar ajustar el documento.");
+      console.error(err);
+      setRefineError(parseGeminiError(err));
+      setChatInput(feedback); // No se pierde lo escrito por el docente.
     } finally {
       setIsRefining(false);
     }
@@ -671,6 +677,9 @@ const Editor: React.FC<EditorProps> = ({
                 <Sparkles className="w-5 h-5 shrink-0 text-amber-500" />
                 <span>Ej: "Añade más actividades de gamificación", "Cambia el tono a uno más inclusivo" o "Sé más específico en la evaluación".</span>
               </div>
+              {refineError && (
+                <ErrorMessage info={refineError} onDismiss={() => setRefineError(null)} />
+              )}
               <form onSubmit={handleRefineSubmit} className="space-y-3">
                 <textarea
                   value={chatInput}

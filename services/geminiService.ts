@@ -1,17 +1,7 @@
 
-import { GoogleGenAI } from "@google/genai";
 import { DocType, TeacherContext, CurriculumAnalysis, GeneratedActivity } from "../types";
-
-const getAiClient = () => {
-  const manualKey = localStorage.getItem('GEMINI_API_KEY');
-  const apiKey = manualKey || process.env.API_KEY;
-  
-  if (!apiKey) {
-    throw new Error("No se ha configurado ninguna API KEY. Por favor, configúrala en el icono de ajustes.");
-  }
-  
-  return new GoogleGenAI({ apiKey });
-};
+import { getAiClient } from "./aiClient";
+import { getSelectedModel } from "./modelService";
 
 const SYSTEM_INSTRUCTION = `
 Eres un experto pedagogo y jefe de departamento con amplia experiencia en normativa educativa (LOMLOE) y diseño curricular.
@@ -39,7 +29,7 @@ export const analyzePdfStructure = async (pdfBase64: string): Promise<Curriculum
   const ai = getAiClient();
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: getSelectedModel(),
       contents: {
         parts: [
           { inlineData: { mimeType: "application/pdf", data: pdfBase64 } },
@@ -73,7 +63,9 @@ export const analyzePdfStructure = async (pdfBase64: string): Promise<Curriculum
     };
   } catch (e) {
     console.error("Error analyzing PDF", e);
-    return { subject: "", grade: "", competencies: [], blocks: [] };
+    // Se propaga para que la interfaz pueda explicar la causa real (cuota, clave, modelo...)
+    // en lugar de mostrar únicamente el aviso genérico de "información curricular parcial".
+    throw e;
   }
 };
 
@@ -227,7 +219,7 @@ export const generateEducationalDocument = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: getSelectedModel(),
       contents: {
         parts: [
           ...(pdfBase64 ? [{ inlineData: { mimeType: "application/pdf", data: pdfBase64 } }] : []),
@@ -305,7 +297,7 @@ export const generateActivityDetails = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: getSelectedModel(),
       contents: {
         parts: [
           ...(pdfBase64 ? [{ inlineData: { mimeType: "application/pdf", data: pdfBase64 } }] : []),
@@ -351,7 +343,7 @@ export const refineActivities = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: getSelectedModel(),
       contents: {
         parts: [
           { text: prompt },
@@ -398,7 +390,7 @@ export const refineDocument = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: getSelectedModel(),
       contents: {
         parts: [
           ...(pdfBase64 ? [{ inlineData: { mimeType: "application/pdf", data: pdfBase64 } }] : []),

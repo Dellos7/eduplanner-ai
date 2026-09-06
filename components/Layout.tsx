@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { BookOpen, Sparkles, Settings } from 'lucide-react';
+import { BookOpen, Sparkles, Settings, Cpu } from 'lucide-react';
 import SettingsModal from './SettingsModal';
+import { getSelectedModel } from '../services/modelService';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,6 +12,12 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, onHome, onSettingsSave }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeModel, setActiveModel] = useState(getSelectedModel());
+
+  const handleSettingsSave = () => {
+    setActiveModel(getSelectedModel());
+    if (onSettingsSave) onSettingsSave();
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -37,10 +44,19 @@ const Layout: React.FC<LayoutProps> = ({ children, onHome, onSettingsSave }) => 
           </div>
           
           <div className="flex items-center gap-4">
-            <button 
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-[11px] font-bold text-slate-500 hover:text-indigo-600 transition-all"
+              title="Modelo de Gemini en uso. Pulsa para cambiarlo."
+            >
+              <Cpu className="w-3.5 h-3.5" />
+              <span className="font-mono">{activeModel}</span>
+            </button>
+
+            <button
               onClick={() => setIsSettingsOpen(true)}
               className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-              title="Configuración de API"
+              title="Configuración de API y modelo"
             >
               <Settings className="w-5 h-5" />
             </button>
@@ -48,10 +64,10 @@ const Layout: React.FC<LayoutProps> = ({ children, onHome, onSettingsSave }) => 
         </div>
       </header>
 
-      <SettingsModal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
-        onSave={onSettingsSave}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onSave={handleSettingsSave}
       />
 
       <main className="flex-1 w-full max-w-[98%] mx-auto px-4 sm:px-6 lg:px-8 py-8">

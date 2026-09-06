@@ -9,10 +9,12 @@ import Editor from './components/Editor';
 import ActivitiesSelection from './components/ActivitiesSelection';
 import ActivitiesResults from './components/ActivitiesResults';
 import History from './components/History';
+import ErrorMessage from './components/ErrorMessage';
 import { AppStep, DocType, TeacherContext, CurriculumAnalysis, HistoryItem, GeneratedActivity } from './types';
 import { generateEducationalDocument, analyzePdfStructure, refineDocument, refineActivities } from './services/geminiService';
 import { saveToHistory, updateHistoryItem } from './services/historyService';
-import { Loader2, AlertCircle, FileSearch, Key, Clock } from 'lucide-react';
+import { parseGeminiError, GeminiErrorInfo } from './services/geminiErrors';
+import { Loader2, FileSearch, Key, Clock } from 'lucide-react';
 
 const getCurrentAcademicYear = () => {
   const now = new Date();
@@ -57,7 +59,7 @@ export default function App() {
   const [generatedActivities, setGeneratedActivities] = useState<GeneratedActivity[]>([]);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<GeminiErrorInfo | null>(null);
   const [hasApiKey, setHasApiKey] = useState(true);
 
   const checkKey = () => {
@@ -86,7 +88,11 @@ export default function App() {
       }));
       setStep(AppStep.CONTEXT);
     } catch (err: any) {
-      setError("Error al analizar el PDF. Por favor, verifica tu clave de API en la configuración.");
+      setError(parseGeminiError(err));
+      // El análisis es un apoyo, no un requisito: se continúa para poder rellenar
+      // la información curricular a mano o reintentar el análisis desde el paso 2.
+      setAnalysisData({ subject: "", grade: "", competencies: [], blocks: [] });
+      setStep(AppStep.CONTEXT);
     } finally {
       setIsAnalyzing(false);
     }
@@ -175,7 +181,7 @@ export default function App() {
 
       setStep(AppStep.EDITOR);
     } catch (err: any) {
-      setError(err.message || "Error al generar el documento.");
+      setError(parseGeminiError(err));
       setStep(AppStep.SELECT_TYPE);
     }
   };
@@ -324,9 +330,12 @@ export default function App() {
         )}
 
         {error && (
-          <div className="max-w-4xl mx-auto mb-6 bg-red-50 border border-red-200 p-4 rounded-xl flex items-center gap-3 text-red-700 animate-shake">
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            <p className="text-sm font-medium">{error}</p>
+          <div className="max-w-4xl mx-auto mb-6">
+            <ErrorMessage
+              info={error}
+              onDismiss={() => setError(null)}
+              onRetry={pdfBase64 && step === AppStep.CONTEXT ? () => performAnalysis(pdfBase64) : undefined}
+            />
           </div>
         )}
 
