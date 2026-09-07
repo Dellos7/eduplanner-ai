@@ -1,4 +1,20 @@
-import { getSelectedModel } from "./modelService";
+const MODEL_TAG = '__eduplannerModel';
+
+/**
+ * Marca una excepción con el modelo que se estaba usando al producirse.
+ * Como cada tarea usa su propio modelo, sin esta marca no se podría decir
+ * al usuario cuál de ellos ha fallado.
+ */
+export const tagErrorModel = <T,>(error: T, model: string): T => {
+  try {
+    if (error && typeof error === 'object') {
+      (error as any)[MODEL_TAG] = model;
+    }
+  } catch (e) {
+    // Algunos errores son inmutables; en ese caso simplemente no se etiqueta.
+  }
+  return error;
+};
 
 export interface GeminiErrorInfo {
   /** Código HTTP devuelto por la API, si se ha podido determinar. */
@@ -127,7 +143,8 @@ export const parseGeminiError = (error: unknown): GeminiErrorInfo => {
   const status = parsed?.status;
   const detail = parsed?.message || raw;
   const retryAfterSeconds = extractRetrySeconds(parsed, raw);
-  const model = extractModel(parsed, raw) || getSelectedModel();
+  const model = extractModel(parsed, raw) || (error as any)?.[MODEL_TAG] || undefined;
+  const modelName = model || 'seleccionado';
 
   const base = { code, status, raw: detail, model, retryAfterSeconds };
 
@@ -156,17 +173,17 @@ export const parseGeminiError = (error: unknown): GeminiErrorInfo => {
     const noFreeTier = /limit:\s*0/.test(detail);
     const perDay = /PerDay/i.test(detail);
 
-    let message = `Tu clave ha superado el límite de uso de la API de Gemini para el modelo ${model}.`;
+    let message = `Tu clave ha superado el límite de uso de la API de Gemini para el modelo ${modelName}.`;
     let hint = retryAfterSeconds
-      ? `Espera unos ${retryAfterSeconds} segundos y vuelve a intentarlo, o cambia a un modelo más ligero (Ajustes → Modelo de Gemini).`
-      : 'Espera unos minutos y vuelve a intentarlo, o cambia a un modelo más ligero (Ajustes → Modelo de Gemini).';
+      ? `Espera unos ${retryAfterSeconds} segundos y vuelve a intentarlo, o cambia a un modelo más ligero (Ajustes → Modelos de Gemini).`
+      : 'Espera unos minutos y vuelve a intentarlo, o cambia a un modelo más ligero (Ajustes → Modelos de Gemini).';
 
     if (noFreeTier) {
-      message = `El modelo ${model} no está disponible en el nivel gratuito de tu clave (la cuota asignada es 0).`;
-      hint = 'Cambia de modelo en Ajustes → Modelo de Gemini (por ejemplo, un modelo Flash o 2.5 Pro), o activa la facturación en tu proyecto de Google AI Studio.';
+      message = `El modelo ${modelName} no está disponible en el nivel gratuito de tu clave (la cuota asignada es 0).`;
+      hint = 'Cambia de modelo en Ajustes → Modelos de Gemini (por ejemplo, un modelo Flash o 2.5 Pro), o activa la facturación en tu proyecto de Google AI Studio.';
     } else if (perDay) {
-      message = `Has agotado la cuota diaria gratuita del modelo ${model}.`;
-      hint = 'Prueba mañana, cambia a un modelo más ligero en Ajustes → Modelo de Gemini, o activa la facturación en tu proyecto de Google AI Studio.';
+      message = `Has agotado la cuota diaria gratuita del modelo ${modelName}.`;
+      hint = 'Prueba mañana, cambia a un modelo más ligero en Ajustes → Modelos de Gemini, o activa la facturación en tu proyecto de Google AI Studio.';
     }
 
     return {
@@ -200,18 +217,32 @@ export const parseGeminiError = (error: unknown): GeminiErrorInfo => {
     };
   }
 
-  // 5. Modelo inexistente o no disponible para esa clave.
+  // 5. Modelo retirado para las claves nuevas: Google lo sigue listando, pero no lo sirve.
+  if (/no longer available to new users|no longer available for new/i.test(detail)) {
+    const replacement = detail.match(/use\s+models\/([a-z0-9.\-]+)/i)?.[1];
+    return {
+      ...base,
+      title: `El modelo "${modelName}" ya no se ofrece a claves nuevas`,
+      message: `Google mantiene ${modelName} para quienes ya lo usaban, pero no lo habilita en proyectos creados después de su retirada. Seguirá apareciendo en la lista de modelos detectados aunque tu clave no pueda usarlo.`,
+      hint: replacement
+        ? `Elige otro modelo en Ajustes → Modelos de Gemini para esa tarea. Google sugiere ${replacement}, pero comprueba antes si ese modelo tiene nivel gratuito: si no lo tiene, dará error de cuota salvo que actives facturación.`
+        : 'Elige otro modelo en Ajustes → Modelos de Gemini para esa tarea.',
+      helpUrl: 'https://ai.google.dev/gemini-api/docs/deprecations'
+    };
+  }
+
+  // 6. Modelo inexistente o no disponible para esa clave.
   if (code === 404 || status === 'NOT_FOUND' || /is not found for API version|not supported for generateContent/i.test(detail)) {
     return {
       ...base,
-      title: `El modelo "${model}" no está disponible`,
+      title: `El modelo "${modelName}" no está disponible`,
       message: 'Google no reconoce ese modelo para tu clave, o el modelo ya no admite generación de contenido.',
-      hint: 'Abre Ajustes → Modelo de Gemini, pulsa "Detectar modelos disponibles" y elige uno de la lista.',
+      hint: 'Abre Ajustes → Modelos de Gemini, pulsa "Detectar modelos disponibles" y elige otro para esa tarea.',
       helpUrl: 'https://ai.google.dev/gemini-api/docs/models'
     };
   }
 
-  // 6. Petición demasiado grande (PDF muy pesado).
+  // 7. Petición demasiado grande (PDF muy pesado).
   if (code === 413 || /request payload size|too large|exceeds the maximum/i.test(detail)) {
     return {
       ...base,
@@ -221,7 +252,7 @@ export const parseGeminiError = (error: unknown): GeminiErrorInfo => {
     };
   }
 
-  // 7. Contenido bloqueado por los filtros de seguridad.
+  // 8. Contenido bloqueado por los filtros de seguridad.
   if (/SAFETY|blocked|PROHIBITED_CONTENT|RECITATION/i.test(detail) && !/unsafe connection/i.test(detail)) {
     return {
       ...base,
@@ -231,7 +262,7 @@ export const parseGeminiError = (error: unknown): GeminiErrorInfo => {
     };
   }
 
-  // 8. Petición mal formada.
+  // 9. Petición mal formada.
   if (code === 400 || status === 'INVALID_ARGUMENT' || status === 'FAILED_PRECONDITION') {
     return {
       ...base,
@@ -241,7 +272,7 @@ export const parseGeminiError = (error: unknown): GeminiErrorInfo => {
     };
   }
 
-  // 9. Tiempo de espera agotado.
+  // 10. Tiempo de espera agotado.
   if (code === 504 || status === 'DEADLINE_EXCEEDED' || /timeout|timed out/i.test(detail)) {
     return {
       ...base,
@@ -251,7 +282,7 @@ export const parseGeminiError = (error: unknown): GeminiErrorInfo => {
     };
   }
 
-  // 10. Errores del lado de Google.
+  // 11. Errores del lado de Google.
   if ((code && code >= 500) || status === 'UNAVAILABLE' || status === 'INTERNAL' || /overloaded/i.test(detail)) {
     return {
       ...base,
@@ -261,7 +292,7 @@ export const parseGeminiError = (error: unknown): GeminiErrorInfo => {
     };
   }
 
-  // 11. La respuesta no se ha podido interpretar.
+  // 12. La respuesta no se ha podido interpretar.
   if (error instanceof SyntaxError || /JSON/i.test(raw)) {
     return {
       ...base,
@@ -271,7 +302,7 @@ export const parseGeminiError = (error: unknown): GeminiErrorInfo => {
     };
   }
 
-  // 12. Cualquier otro caso.
+  // 13. Cualquier otro caso.
   return {
     ...base,
     title: 'Error inesperado al comunicar con Gemini',

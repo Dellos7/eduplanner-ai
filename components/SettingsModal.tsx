@@ -1,7 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Key, CheckCircle, AlertCircle, ExternalLink, StepForward, LogIn, MousePointer2, Copy, Cpu, RefreshCw, Loader2 } from 'lucide-react';
-import { CURATED_MODELS, GeminiModelOption, getSelectedModel, setSelectedModel, fetchAvailableModels, DEFAULT_MODEL } from '../services/modelService';
+import { X, Key, CheckCircle, AlertCircle, ExternalLink, StepForward, LogIn, MousePointer2, Copy, Cpu, RefreshCw, Loader2, RotateCcw } from 'lucide-react';
+import {
+  CURATED_MODELS,
+  GeminiModelOption,
+  MODEL_TASKS,
+  ModelTask,
+  getAllTaskModels,
+  setTaskModels,
+  fetchAvailableModels
+} from '../services/modelService';
 import { parseGeminiError, GeminiErrorInfo } from '../services/geminiErrors';
 import ErrorMessage from './ErrorMessage';
 
@@ -17,13 +25,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
   const [apiKey, setApiKey] = useState('');
   const [isSaved, setIsSaved] = useState(false);
 
-  const [model, setModel] = useState<string>(DEFAULT_MODEL);
-  const [customModel, setCustomModel] = useState('');
-  const [useCustomModel, setUseCustomModel] = useState(false);
+  const [taskModels, setTaskModelsState] = useState<Record<ModelTask, string>>(getAllTaskModels());
   const [detectedModels, setDetectedModels] = useState<GeminiModelOption[]>([]);
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectionError, setDetectionError] = useState<GeminiErrorInfo | null>(null);
   const [detectionMessage, setDetectionMessage] = useState<string | null>(null);
+  const [hasDetected, setHasDetected] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -31,16 +38,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
     const savedKey = localStorage.getItem('GEMINI_API_KEY');
     if (savedKey) setApiKey(savedKey);
 
-    const savedModel = getSelectedModel();
-    const isKnown = CURATED_MODELS.some(m => m.id === savedModel);
-    setModel(savedModel);
-    setUseCustomModel(!isKnown);
-    setCustomModel(isKnown ? '' : savedModel);
+    setTaskModelsState(getAllTaskModels());
     setDetectionError(null);
     setDetectionMessage(null);
   }, [isOpen]);
 
-  const effectiveModel = useCustomModel ? customModel.trim() : model;
+  const updateTaskModel = (task: ModelTask, value: string) => {
+    setTaskModelsState(prev => ({ ...prev, [task]: value }));
+  };
+
+  const restoreRecommended = () => {
+    setTaskModelsState(
+      MODEL_TASKS.reduce((acc, task) => {
+        acc[task.key] = task.defaultModel;
+        return acc;
+      }, {} as Record<ModelTask, string>)
+    );
+  };
 
   const handleDetectModels = async () => {
     setIsDetecting(true);
@@ -49,10 +63,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
     try {
       const models = await fetchAvailableModels(apiKey);
       setDetectedModels(models);
+      setHasDetected(true);
       if (models.length === 0) {
         setDetectionMessage('La API no ha devuelto ningún modelo de texto para esta clave.');
       } else {
-        setDetectionMessage(`${models.length} modelos disponibles para tu clave.`);
+        setDetectionMessage(`${models.length} modelos disponibles para tu clave. Los que no aparezcan en tu lista darán error 404 al usarlos.`);
       }
     } catch (e) {
       setDetectionError(parseGeminiError(e));
@@ -68,7 +83,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
       localStorage.removeItem('GEMINI_API_KEY');
     }
 
-    setSelectedModel(effectiveModel || DEFAULT_MODEL);
+    setTaskModels(taskModels);
 
     setIsSaved(true);
     if (onSave) onSave();
@@ -78,27 +93,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
     }, 1500);
   };
 
-  // Los detectados que no estén ya en la lista sugerida.
-  const extraDetected = detectedModels.filter(d => !CURATED_MODELS.some(c => c.id === d.id));
-  const selectedHint = CURATED_MODELS.find(m => m.id === effectiveModel)?.hint
-    || detectedModels.find(m => m.id === effectiveModel)?.hint;
+  const isDefaultConfig = MODEL_TASKS.every(task => taskModels[task.key] === task.defaultModel);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <Key className="w-5 h-5 text-indigo-600" />
-            Configuración de API y modelo
+            Configuración de API y modelos
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
         
-        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+        <div className="p-6 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">Gemini API Key</label>
             <input 
@@ -113,12 +125,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
             </p>
           </div>
 
-          {/* Selección del modelo de Gemini */}
+          {/* Selección del modelo de Gemini para cada tarea */}
           <div className="space-y-3 border-t border-slate-100 pt-6">
             <div className="flex items-center justify-between gap-3">
               <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                 <Cpu className="w-4 h-4 text-indigo-600" />
-                Modelo de Gemini
+                Modelos de Gemini por tarea
               </label>
               <button
                 type="button"
@@ -132,53 +144,36 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
               </button>
             </div>
 
-            <select
-              value={useCustomModel ? CUSTOM_OPTION : model}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value === CUSTOM_OPTION) {
-                  setUseCustomModel(true);
-                  if (!customModel) setCustomModel(model);
-                } else {
-                  setUseCustomModel(false);
-                  setModel(value);
-                }
-              }}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
-            >
-              <optgroup label="Modelos sugeridos">
-                {CURATED_MODELS.map(m => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
-              </optgroup>
-              {extraDetected.length > 0 && (
-                <optgroup label="Detectados para tu clave">
-                  {extraDetected.map(m => (
-                    <option key={m.id} value={m.id}>{m.label} ({m.id})</option>
-                  ))}
-                </optgroup>
-              )}
-              <option value={CUSTOM_OPTION}>Otro modelo (escribir identificador)…</option>
-            </select>
-
-            {useCustomModel && (
-              <input
-                type="text"
-                value={customModel}
-                onChange={(e) => setCustomModel(e.target.value)}
-                placeholder="Ej: gemini-2.5-flash"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm"
-              />
-            )}
-
-            {selectedHint && !useCustomModel && (
-              <p className="text-xs text-slate-500 leading-relaxed">{selectedHint}</p>
-            )}
-
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Modelo activo: <span className="font-mono text-slate-600">{effectiveModel || DEFAULT_MODEL}</span>.
-              Los modelos Pro redactan mejor, pero consumen mucha más cuota; los Flash son más rápidos y baratos.
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Cada paso de la aplicación consume de forma muy distinta. Vienen preconfigurados los modelos recomendados para cada uno: puedes cambiarlos si tu clave tiene otros límites.
             </p>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {MODEL_TASKS.map(task => (
+                <TaskModelSelector
+                  key={task.key}
+                  taskKey={task.key}
+                  label={task.label}
+                  description={task.description}
+                  defaultModel={task.defaultModel}
+                  value={taskModels[task.key]}
+                  detectedModels={detectedModels}
+                  hasDetected={hasDetected}
+                  onChange={updateTaskModel}
+                />
+              ))}
+            </div>
+
+            {!isDefaultConfig && (
+              <button
+                type="button"
+                onClick={restoreRecommended}
+                className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Restablecer los modelos recomendados
+              </button>
+            )}
 
             {detectionMessage && !detectionError && (
               <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg p-2.5">
@@ -208,7 +203,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
               </a>
             </div>
 
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="flex gap-3">
                 <div className="flex-shrink-0 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center text-[10px] font-bold text-slate-400">1</div>
                 <div className="flex flex-col">
@@ -259,6 +254,111 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
           </button>
         </div>
       </div>
+    </div>
+  );
+};
+
+interface TaskModelSelectorProps {
+  taskKey: ModelTask;
+  label: string;
+  description: string;
+  defaultModel: string;
+  value: string;
+  /** Modelos que ha devuelto la API para la clave del usuario. */
+  detectedModels: GeminiModelOption[];
+  /** Si ya se ha consultado la lista; hasta entonces no se puede saber qué falta. */
+  hasDetected: boolean;
+  onChange: (task: ModelTask, value: string) => void;
+}
+
+const TaskModelSelector: React.FC<TaskModelSelectorProps> = ({
+  taskKey, label, description, defaultModel, value, detectedModels, hasDetected, onChange
+}) => {
+  const isKnown = CURATED_MODELS.some(m => m.id === value) || detectedModels.some(m => m.id === value);
+  const [useCustom, setUseCustom] = useState(!isKnown);
+
+  useEffect(() => {
+    setUseCustom(!(CURATED_MODELS.some(m => m.id === value) || detectedModels.some(m => m.id === value)));
+  }, [value, detectedModels]);
+
+  const hint = CURATED_MODELS.find(m => m.id === value)?.hint;
+  const isDefault = value === defaultModel;
+  const isUnavailable = hasDetected && value.trim() !== '' && !detectedModels.some(m => m.id === value.trim());
+
+  // Una vez consultada la API, la lista real manda: se muestran primero los modelos
+  // que la clave admite (con la descripción de la lista sugerida cuando se conoce)
+  // y aparte los sugeridos que esa clave NO sirve.
+  const detectedOptions = detectedModels.map(d => CURATED_MODELS.find(c => c.id === d.id) || d);
+  const notDetected = CURATED_MODELS.filter(c => !detectedModels.some(d => d.id === c.id));
+
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-xs font-bold text-slate-700 leading-tight">{label}</span>
+        {isDefault && (
+          <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
+            Recomendado
+          </span>
+        )}
+      </div>
+      <p className="text-[11px] text-slate-500 leading-relaxed">{description}</p>
+
+      <select
+        value={useCustom ? CUSTOM_OPTION : value}
+        onChange={(e) => {
+          const selected = e.target.value;
+          if (selected === CUSTOM_OPTION) {
+            setUseCustom(true);
+          } else {
+            setUseCustom(false);
+            onChange(taskKey, selected);
+          }
+        }}
+        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
+      >
+        {hasDetected ? (
+          <>
+            <optgroup label="Disponibles para tu clave">
+              {detectedOptions.map(m => (
+                <option key={m.id} value={m.id}>{m.label} ({m.id})</option>
+              ))}
+            </optgroup>
+            {notDetected.length > 0 && (
+              <optgroup label="No disponibles para tu clave">
+                {notDetected.map(m => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </optgroup>
+            )}
+          </>
+        ) : (
+          <optgroup label="Modelos sugeridos">
+            {CURATED_MODELS.map(m => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
+          </optgroup>
+        )}
+        <option value={CUSTOM_OPTION}>Otro modelo (escribir identificador)…</option>
+      </select>
+
+      {useCustom ? (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(taskKey, e.target.value)}
+          placeholder="Ej: gemini-3.8-flash"
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-xs"
+        />
+      ) : (
+        hint && <p className="text-[11px] text-slate-400 leading-relaxed">{hint}</p>
+      )}
+
+      {isUnavailable && (
+        <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2 leading-relaxed flex gap-1.5">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
+          <span>Tu clave no ha devuelto este modelo: al usarlo dará error 404. Elige uno del grupo "Detectados para tu clave".</span>
+        </p>
+      )}
     </div>
   );
 };

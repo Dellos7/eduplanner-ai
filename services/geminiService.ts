@@ -1,7 +1,8 @@
 
 import { DocType, TeacherContext, CurriculumAnalysis, GeneratedActivity } from "../types";
 import { getAiClient } from "./aiClient";
-import { getSelectedModel } from "./modelService";
+import { getTaskModel } from "./modelService";
+import { tagErrorModel } from "./geminiErrors";
 
 const SYSTEM_INSTRUCTION = `
 Eres un experto pedagogo y jefe de departamento con amplia experiencia en normativa educativa (LOMLOE) y diseño curricular.
@@ -16,6 +17,92 @@ REGLAS ESTRICTAS DE RESPUESTA:
 6. El documento debe estar escrito ÚNICA Y EXCLUSIVAMENTE en el idioma solicitado por el usuario.
 `;
 
+/**
+ * Bloque de contexto común a todas las generaciones (P1).
+ * Antes, las metodologías elegidas por el docente solo llegaban al prompt de la
+ * Propuesta Pedagógica y se perdían en la generación de Situaciones de Aprendizaje.
+ */
+const buildContextBlock = (
+  context: TeacherContext,
+  needsString: string,
+  methodologyDetails: string
+) => `
+CONTEXTO DEL AULA (tenlo en cuenta en TODAS las decisiones que tomes):
+- Asignatura: ${context.subject} · Curso: ${context.gradeLevel} · Curso escolar: ${context.academicYear}
+- Carga lectiva: ${context.weeklyHours} sesiones semanales de 55 minutos (aproximadamente ${context.weeklyHours * 35} sesiones anuales).
+- Idioma del documento: ${context.language}
+- Metodologías que el departamento ha decidido priorizar: ${methodologyDetails || 'no se ha indicado ninguna preferencia'}
+- Perfil del grupo y barreras para la inclusión: ${needsString}
+`;
+
+/**
+ * Estándar de actividad práctica (P2). Define QUÉ debe ser una actividad;
+ * el grado de detalle con que se redacta lo fija cada prompt por separado.
+ */
+const PRACTICALITY_CLAUSE = `
+=== ESTÁNDAR DE ACTIVIDAD PRÁCTICA (obligatorio) ===
+
+PRUEBA DE LA FOTOGRAFÍA: si al hacer una foto del aula durante la actividad solo se ve al alumnado escuchando, copiando o leyendo, la actividad NO ES VÁLIDA. Reescríbela hasta que en la foto se vea al alumnado manipulando, midiendo, construyendo, discutiendo con roles, grabando, programando, entrevistando, resolviendo un caso real o produciendo algo.
+
+TODA actividad debe cumplir estas cuatro condiciones:
+1. PRODUCTO OBSERVABLE: termina en algo que se puede recoger, ver, escuchar o guardar (maqueta, plano, hoja de cálculo, pódcast, cartel, informe de una página, código que funciona, dossier fotográfico, guion, mapa, prototipo, base de datos, vídeo de 90 segundos...).
+2. ROL ACTIVO Y AGRUPAMIENTO EXPLÍCITO: indica si es individual, por parejas, en equipos de 3-4 con roles asignados o en gran grupo, y qué hace exactamente el alumnado.
+3. ANCLAJE REAL: el contenido se aplica a un contexto reconocible para el alumnado (el propio centro, el barrio, la localidad, la comarca, la Comunitat Valenciana, su vida cotidiana, su consumo, su entorno digital o una salida profesional concreta).
+4. FACTIBILIDAD: realizable en un instituto público, con material fungible de bajo coste, dispositivos compartidos (uno entre dos) y en sesiones de 55 minutos. Si propones una salida del centro, añade siempre una alternativa equivalente dentro del aula.
+
+VERBOS PROHIBIDOS como núcleo de una actividad (solo pueden aparecer como paso interno breve): "introducción teórica", "explicación del profesorado", "presentación del tema", "repaso", "lectura del libro de texto", "realización de ejercicios", "toma de apuntes", "corrección en la pizarra", "visionado de un vídeo" (salvo con guía de observación y producto posterior), "trabajo de investigación" a secas, "búsqueda de información en internet" a secas.
+
+VERBOS QUE DEBES USAR: medir, construir, prototipar, desmontar, cultivar, cocinar, cartografiar, simular, modelizar, programar, depurar, diseñar, maquetar, grabar, editar, entrevistar, encuestar, auditar, presupuestar, dramatizar, debatir con roles asignados, arbitrar, reconstruir, catalogar, traducir para un uso real, comisariar, divulgar, prestar un servicio a la comunidad.
+
+EQUILIBRIO DE LA SECUENCIA (regla 70/30): como máximo el 30 % del tiempo total de la situación de aprendizaje puede dedicarse a exposición docente, modelado o instrucción directa; el 70 % restante debe ser trabajo del alumnado. Ninguna explicación magistral puede superar los 15 minutos seguidos.
+
+FASES DE LA SECUENCIA (en este orden; pueden agruparse si hay pocas sesiones): Activación y reto → Indagación o exploración → Estructuración del saber → Aplicación y producción → Producto final y difusión → Reflexión y metacognición. Rotula cada actividad con su fase entre corchetes justo después de los dos puntos.
+
+DENSIDAD: el número de actividades de una situación de aprendizaje debe estar entre la mitad y el total de sus sesiones, con un mínimo de 4. Una actividad puede ocupar una o varias sesiones. La suma de las sesiones asignadas a las actividades debe ser EXACTAMENTE igual al número de sesiones de la situación de aprendizaje.
+
+INCLUSIÓN: no repitas la misma frase en todas las actividades. Cada una debe recoger medidas DIFERENTES y aplicables a ESA actividad, formuladas según los tres principios del Diseño Universal para el Aprendizaje (implicación, representación, y acción y expresión), e indicando si son medidas ordinarias (niveles I-II) o específicas (niveles III-IV).
+`;
+
+/**
+ * Recordatorio de nivel de concreción (P2): la programación de aula DESCRIBE las
+ * actividades; los enunciados y materiales se redactan al desarrollarlas (pasos 6 y 7).
+ */
+const SDA_DETAIL_LEVEL_NOTE = `
+NIVEL DE DETALLE EN ESTE DOCUMENTO: describe cada actividad en una o dos líneas dentro de la celda de la tabla, en registro técnico de programación. NO redactes aquí el enunciado para el alumnado, ni los pasos, ni las preguntas, ni las fichas de trabajo: eso pertenece al desarrollo posterior de cada actividad.
+`;
+
+/**
+ * Playbooks por metodología (P10): cada metodología marcada aporta instrucciones
+ * operativas, en lugar de llegar al prompt como una etiqueta suelta.
+ */
+const METHODOLOGY_PLAYBOOKS: Record<string, (context: TeacherContext) => string> = {
+  "Actividades prácticas": (context) => `
+=== METODOLOGÍA "ACTIVIDADES PRÁCTICAS" (prioritaria en esta programación) ===
+
+La asignatura se organiza como una sucesión de PRÁCTICAS. El alumnado las resuelve en clase y, al terminar cada una, ENTREGA lo producido durante las sesiones que haya ocupado. Esa entrega es la evidencia que se evalúa.
+
+Al diseñar la secuencia de actividades de cada situación de aprendizaje:
+1. Una actividad = una práctica con su entrega. Una práctica puede ocupar UNA sesión o VARIAS sesiones consecutivas, según su complejidad: no fuerces que todas duren lo mismo ni que haya una por sesión. Indica cuántas sesiones ocupa cada una, y recuerda que la suma debe coincidir con la duración de la situación de aprendizaje.
+2. Nombra cada actividad con el formato: **Actividad N:** [Práctica] Verbo + qué se construye o resuelve + formato de la entrega. Ejemplo: "**Actividad 3:** [Práctica] Maquetar la página de inicio con CSS Grid y entregar la carpeta del proyecto comprimida".
+3. En los recursos, indica también DÓNDE se entrega (aula virtual del centro, repositorio, carpeta compartida, entrega en papel) y en qué formato y nomenclatura de archivo.
+4. Cada práctica debe ser resoluble por un alumno de ${context.gradeLevel} en las sesiones que le asignes, partiendo de cero, con un máximo de 10-15 minutos de explicación o demostración del docente al inicio de cada sesión. El resto del tiempo es trabajo del alumnado. En las prácticas de varias sesiones, señala qué debe estar hecho al final de cada sesión para poder comprobar el avance sin esperar a la entrega final.
+5. Encadena las prácticas en dificultad creciente: las primeras guiadas paso a paso, las intermedias con autonomía parcial, las últimas abiertas. La última práctica de la situación debe ser INTEGRADORA: resuelve un encargo completo movilizando lo trabajado en las anteriores.
+6. Prevé siempre una tarea de ampliación para quien termine antes y una versión reducida (mínimos exigibles) para quien no llegue: ni tiempo muerto ni alumnado descolgado.
+7. Cada práctica genera una entrega calificable. Indica, por cada una, a qué criterios de evaluación X.Y contribuye y con qué instrumento se valora (rúbrica breve, lista de cotejo, checklist de requisitos técnicos).
+8. Declara la política de entregas: plazo, entregas fuera de plazo, posibilidad de mejorar y volver a entregar, y qué ocurre con el alumnado que falta a alguna sesión de una práctica de varias sesiones.
+9. La calificación de la situación de aprendizaje se construye principalmente con las entregas de las prácticas, no con una prueba escrita final. Si se incluye una prueba, debe ser también práctica (resolver un encargo en el ordenador o en el taller).
+
+Nota: esta metodología es compatible con el reto y el producto final de la situación de aprendizaje. En ese caso, el producto final es el resultado de la práctica integradora y las prácticas previas son sus entregas parciales.
+`,
+};
+
+const buildMethodologyPlaybooks = (context: TeacherContext): string =>
+  context.methodologyPreference
+    .map(m => METHODOLOGY_PLAYBOOKS[m])
+    .filter(Boolean)
+    .map(playbook => playbook(context))
+    .join('\n');
+
 const getOrganizationHeaders = (language: string) => {
   if (language.includes('Catalán') || language.includes('Valenciano')) {
     return "| Seqüenciació d'activitats | Organització dels espais | Distribució del temps | Recursos i materials | Mesures de resposta educativa per a la inclusió |";
@@ -27,9 +114,10 @@ const getOrganizationHeaders = (language: string) => {
 
 export const analyzePdfStructure = async (pdfBase64: string): Promise<CurriculumAnalysis> => {
   const ai = getAiClient();
+  const model = getTaskModel('analysis');
   try {
     const response = await ai.models.generateContent({
-      model: getSelectedModel(),
+      model,
       contents: {
         parts: [
           { inlineData: { mimeType: "application/pdf", data: pdfBase64 } },
@@ -65,7 +153,7 @@ export const analyzePdfStructure = async (pdfBase64: string): Promise<Curriculum
     console.error("Error analyzing PDF", e);
     // Se propaga para que la interfaz pueda explicar la causa real (cuota, clave, modelo...)
     // en lugar de mostrar únicamente el aviso genérico de "información curricular parcial".
-    throw e;
+    throw tagErrorModel(e, model);
   }
 };
 
@@ -75,18 +163,24 @@ export const generateEducationalDocument = async (
   docType: DocType
 ): Promise<string> => {
   const ai = getAiClient();
+  const model = getTaskModel(docType === DocType.PROPUESTA ? 'propuesta' : 'situacion');
   let prompt = "";
-  const needsString = [...context.selectedNeeds, context.otherNeeds].filter(Boolean).join(", ");
+  const needsString = [...context.selectedNeeds, context.otherNeeds].filter(Boolean).join(", ")
+    || "sin necesidades específicas declaradas; aplica igualmente el enfoque DUA como medida universal";
   const methodologiesString = context.methodologyPreference.join(", ");
   let methodologyDetails = methodologiesString;
   if (context.methodologyDescription && context.methodologyDescription.trim()) {
     methodologyDetails += `. Descripción adicional: ${context.methodologyDescription.trim()}`;
   }
   const langInstruction = `IDIOMA DEL DOCUMENTO: ${context.language}.`;
+  const contextBlock = buildContextBlock(context, needsString, methodologyDetails);
+  const methodologyPlaybooks = buildMethodologyPlaybooks(context);
 
   if (docType === DocType.PROPUESTA) {
     prompt = `
       ${langInstruction}
+      ${contextBlock}
+      ${methodologyPlaybooks}
       Genera una **PROPUESTA PEDAGÓGICA DE DEPARTAMENTO**.
       IMPORTANTE: No incluyas texto introductorio ("Claro, aquí tienes..."). Empieza directamente con el título.
       
@@ -149,9 +243,14 @@ export const generateEducationalDocument = async (
 
     prompt = `
       ${langInstruction}
+      ${contextBlock}
       Genera ${saCountText} **SITUACIONES DE APRENDIZAJE** detalladas para ${context.subject} (${context.gradeLevel}).
       ${ideasPrompt}
-      
+
+      ${PRACTICALITY_CLAUSE}
+      ${SDA_DETAIL_LEVEL_NOTE}
+      ${methodologyPlaybooks}
+
       REQUISITOS OBLIGATORIOS:
       1. Empieza el documento con un único encabezado principal (h1): # ${programacionTitle}
       2. **NUMERA SIEMPRE** las situaciones en el título (ej: 1, 2, 3...) y usa SIEMPRE encabezado de nivel 2 (h2) para cada una.
@@ -161,7 +260,8 @@ export const generateEducationalDocument = async (
       6. Los Saberes Básicos deben indicar siempre explícitamente a qué Bloque Curricular pertenecen.
       7. Debes incluir una tabla resumen al principio y una matriz de competencias al final. Traduce los títulos de estas tablas al idioma solicitado.
       8. ${context.generateFullCourse ? 'Asegúrate de repartir TODAS las competencias específicas y saberes básicos de la asignatura entre todas las situaciones de aprendizaje generadas.' : 'No fuerces la inclusión de competencias específicas o saberes básicos que no tengan sentido con la temática de la situación de aprendizaje. Es normal que en un número reducido de situaciones no se cubran todas las competencias o saberes del currículo.'}
-      9. Ten siempre en cuenta que cada "sesión" tiene una duración estricta y cronometrada de 55 minutos. No planifiques actividades que excedan este tiempo sin dividirlas en varias sesiones.
+      9. Ten siempre en cuenta que cada "sesión" tiene una duración estricta y cronometrada de 55 minutos. Una actividad puede ocupar una o varias sesiones consecutivas, pero indica siempre cuántas y asegúrate de que el trabajo cabe realmente en ese tiempo.
+      10. Aplica el ESTÁNDAR DE ACTIVIDAD PRÁCTICA y las metodologías priorizadas por el departamento en la secuencia de actividades de TODAS las situaciones de aprendizaje. Deben reconocerse en el resultado.
       
       ESTRUCTURA EXACTA DEL DOCUMENTO:
 
@@ -186,6 +286,7 @@ export const generateEducationalDocument = async (
       | [Descripción] | [Descripción] | [Descripción] | [Descripción] |
 
       **Descripción / Justificación:**
+      Duración: [N] sesiones de 55 minutos.
       [Justificación pedagógica]
 
       **Relación con los retos del s.XXI y los ODS:**
@@ -199,12 +300,14 @@ export const generateEducationalDocument = async (
       - **Bloque [Nombre del Bloque Curricular]:** [Saberes del PDF]
 
       **Organización:**
-      Genera una tabla con al menos 3 filas (Actividad 1, Actividad 2, Actividad 3).
+      Genera una fila por actividad, respetando la regla de densidad (entre la mitad y el total de las sesiones de la situación, mínimo 4 actividades) y el estándar de actividad práctica.
+      Describe cada actividad en una o dos líneas: qué hace el alumnado y qué produce. NO redactes aquí el enunciado ni los pasos para el alumnado.
+      La última actividad debe ser la difusión o entrega del producto final, y debe existir una actividad de reflexión o metacognición.
       ${orgHeader}
       | :--- | :--- | :--- | :--- | :--- |
-      | **Actividad 1:** [Nombre] | [Espacio] | [Tiempo] | [Recursos] | [Medidas concretas para: ${needsString}] |
-      | **Actividad 2:** [Nombre] | [Espacio] | [Tiempo] | [Recursos] | [Medidas concretas para: ${needsString}] |
-      | **Actividad 3:** [Nombre] | [Espacio] | [Tiempo] | [Recursos] | [Medidas concretas para: ${needsString}] |
+      | **Actividad 1:** [Fase] Verbo de acción + qué produce el alumnado + agrupamiento | [Espacio concreto] | [N sesiones (N x 55 min)] | [Recursos concretos y contables] | [Medidas DUA distintas en cada fila para: ${needsString}] |
+      | **Actividad 2:** [Fase] ... | [Espacio concreto] | [N sesiones] | [Recursos] | [Medidas DUA] |
+      | [...continúa hasta cubrir la secuencia completa: la suma de sesiones de las actividades debe ser igual a la duración de la situación de aprendizaje] |
 
       **Instrumentos de recogida de información:**
       [Lista de instrumentos]
@@ -219,7 +322,7 @@ export const generateEducationalDocument = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: getSelectedModel(),
+      model,
       contents: {
         parts: [
           ...(pdfBase64 ? [{ inlineData: { mimeType: "application/pdf", data: pdfBase64 } }] : []),
@@ -234,7 +337,7 @@ export const generateEducationalDocument = async (
     return response.text || "Error en generación.";
   } catch (error) {
     console.error(error);
-    throw error;
+    throw tagErrorModel(error, model);
   }
 };
 
@@ -251,10 +354,23 @@ export const generateActivityDetails = async (
   fullDocumentContext: string
 ): Promise<string> => {
   const ai = getAiClient();
+  const model = getTaskModel('activities');
   const langInstruction = `IDIOMA DEL DOCUMENTO: ${context.language}.`;
+
+  const needsString = [...context.selectedNeeds, context.otherNeeds].filter(Boolean).join(", ")
+    || "sin necesidades específicas declaradas; aplica igualmente el enfoque DUA como medida universal";
+  const methodologiesString = context.methodologyPreference.join(", ");
+  let methodologyDetails = methodologiesString;
+  if (context.methodologyDescription && context.methodologyDescription.trim()) {
+    methodologyDetails += `. Descripción adicional: ${context.methodologyDescription.trim()}`;
+  }
+  const contextBlock = buildContextBlock(context, needsString, methodologyDetails);
+  const methodologyPlaybooks = buildMethodologyPlaybooks(context);
+  const isPracticeBased = context.methodologyPreference.includes("Actividades prácticas");
 
   const prompt = `
     ${langInstruction}
+    ${contextBlock}
     Eres un experto pedagogo. Has generado previamente esta Programación de Aula:
     ---
     ${fullDocumentContext}
@@ -265,8 +381,16 @@ export const generateActivityDetails = async (
     Actividad a desarrollar: "${activityInfo.activityName}"
     Instrucciones específicas del usuario: "${activityInfo.instructions || 'Ninguna instrucción específica, desarrolla la actividad de forma creativa y alineada con la programación.'}"
     
-    MUY IMPORTANTE: Recuerda que todas las "sesiones" del curso duran estrictamente 55 minutos. Si esta actividad requiere una sesión entera, asegúrate de que haya tareas y tiempos distribuidos realísticamente para rellenar esos 55 minutos. Si requiere varias, indícalo. No planees nada imposible de hacer en 55 minutos.
+    MUY IMPORTANTE: Recuerda que todas las "sesiones" del curso duran estrictamente 55 minutos. Si esta actividad requiere una sesión entera, asegúrate de que haya tareas y tiempos distribuidos realísticamente para rellenar esos 55 minutos. Si requiere varias, indícalo y desarrolla el guion de todas. No planees nada imposible de hacer en 55 minutos.
 
+    ${PRACTICALITY_CLAUSE}
+    ${methodologyPlaybooks}
+
+    REGLA CENTRAL DE ESTE DOCUMENTO: ESCRIBE EL MATERIAL, NO LO DESCRIBAS.
+    A diferencia de la programación de aula, aquí sí se redacta el material de clase. No escribas "se pedirá al alumnado que analice unos datos": escribe los datos y la pregunta literal que leerá el alumnado. No escribas "se formarán grupos con roles": escribe los roles con su nombre y sus tareas. El resultado debe poder imprimirse y llevarse a clase sin trabajo adicional.
+    ${isPracticeBased ? `
+    METODOLOGÍA DE PRÁCTICAS ACTIVA: el apartado 6 debe tener la forma de un enunciado de práctica listo para repartir: título, objetivo en una frase, material de partida (ficheros, datos, plantilla, medidas), requisitos numerados que debe cumplir la entrega, criterios de éxito en lenguaje de alumnado, formato y nombre del archivo o soporte de entrega, plazo, y una tarea de ampliación opcional. El apartado 7 debe ser la rúbrica de esa entrega, con los requisitos convertidos en criterios observables.
+    ` : ''}
     Escribe el desarrollo completo de la actividad en formato Markdown asegurándote de incluir, AL MENOS, los siguientes apartados:
     
     # ${activityInfo.activityName}
@@ -297,7 +421,7 @@ export const generateActivityDetails = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: getSelectedModel(),
+      model,
       contents: {
         parts: [
           ...(pdfBase64 ? [{ inlineData: { mimeType: "application/pdf", data: pdfBase64 } }] : []),
@@ -312,7 +436,7 @@ export const generateActivityDetails = async (
     return response.text || "Error en generación de la actividad.";
   } catch (error) {
     console.error(error);
-    throw error;
+    throw tagErrorModel(error, model);
   }
 };
 
@@ -322,6 +446,7 @@ export const refineActivities = async (
   language: string
 ): Promise<GeneratedActivity[]> => {
   const ai = getAiClient();
+  const model = getTaskModel('refine');
   const langInstruction = `EL DOCUMENTO DEBE SEGUIR ESTANDO EN: ${language}.`;
   
   const contentToRefine = JSON.stringify(currentActivities, null, 2);
@@ -343,7 +468,7 @@ export const refineActivities = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: getSelectedModel(),
+      model,
       contents: {
         parts: [
           { text: prompt },
@@ -359,7 +484,7 @@ export const refineActivities = async (
     return JSON.parse(cleanedText) as GeneratedActivity[];
   } catch (error) {
     console.error(error);
-    throw error;
+    throw tagErrorModel(error, model);
   }
 };
 
@@ -371,6 +496,7 @@ export const refineDocument = async (
   feedback: string
 ): Promise<string> => {
   const ai = getAiClient();
+  const model = getTaskModel('refine');
   const langInstruction = `EL DOCUMENTO DEBE SEGUIR ESTANDO EN: ${context.language}.`;
   
   const prompt = `
@@ -390,7 +516,7 @@ export const refineDocument = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: getSelectedModel(),
+      model,
       contents: {
         parts: [
           ...(pdfBase64 ? [{ inlineData: { mimeType: "application/pdf", data: pdfBase64 } }] : []),
@@ -405,6 +531,6 @@ export const refineDocument = async (
     return response.text || "Error en refinamiento.";
   } catch (error) {
     console.error(error);
-    throw error;
+    throw tagErrorModel(error, model);
   }
 };

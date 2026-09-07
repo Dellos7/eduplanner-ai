@@ -25,6 +25,7 @@ const COMMON_NEEDS = [
 
 const METHODOLOGIES = [
   "Aprendizaje Basado en Proyectos (ABP)",
+  "Actividades prácticas",
   "Flipped Classroom",
   "Gamificación",
   "Aprendizaje Cooperativo",
@@ -222,6 +223,9 @@ const ContextForm: React.FC<ContextFormProps> = ({ initialData, analysisData, on
             Metodologías Preferidas
           </h3>
           <p className="text-sm text-slate-500 mb-4">Selecciona los enfoques que la IA priorizará en la redacción:</p>
+          <p className="text-xs text-slate-400 mb-4 -mt-2">
+            <strong className="text-slate-500">Actividades prácticas:</strong> cada actividad es una práctica que el alumnado resuelve en clase y entrega al terminarla para su evaluación (puede ocupar una o varias sesiones).
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
             {METHODOLOGIES.map((method) => (
               <button

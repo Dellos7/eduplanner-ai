@@ -319,7 +319,7 @@ export default function App() {
             </div>
             <button 
               onClick={() => {
-                const btn = document.querySelector('[title="Configuración de API"]') as HTMLButtonElement;
+                const btn = document.querySelector('[data-settings-trigger]') as HTMLButtonElement;
                 btn?.click();
               }}
               className="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition-all active:scale-95 text-sm"

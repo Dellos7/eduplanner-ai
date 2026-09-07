@@ -15,7 +15,7 @@ EduPlanner AI es una **SPA de una sola sesión de trabajo** (sin backend, sin cu
 
 Adicionalmente, sobre una programación ya generada, permite un tercer nivel de concreción: **desarrollar en profundidad actividades concretas** extraídas de las tablas de organización de cada SdA (descripción, temporalización, recursos, medidas de inclusión, desarrollo para el alumnado y rúbrica).
 
-Toda la generación se hace con **Google Gemini** (modelo seleccionable desde los ajustes; por defecto `gemini-3.1-pro-preview`) enviando el **PDF del currículum como `inlineData`** en cada llamada, de modo que el modelo trabaja siempre con la fuente normativa delante.
+Toda la generación se hace con **Google Gemini** (un modelo configurable por cada tipo de tarea, ver §2) enviando el **PDF del currículum como `inlineData`** en cada llamada, de modo que el modelo trabaja siempre con la fuente normativa delante.
 
 ---
 
@@ -25,7 +25,7 @@ Toda la generación se hace con **Google Gemini** (modelo seleccionable desde lo
 | --- | --- |
 | Framework | React 19 + TypeScript, sin router (máquina de estados por `AppStep`) |
 | Build | Vite 6 (`npm run dev` en el puerto 3000, `npm run build`, `npm run lint` = `tsc --noEmit`) |
-| IA | `@google/genai` (SDK oficial); modelo elegido por el usuario, por defecto `gemini-3.1-pro-preview` |
+| IA | `@google/genai` (SDK oficial); un modelo configurable por tarea |
 | Estilos | Tailwind vía CDN (`index.html`) + CSS propio para `.markdown-body`, impresión y modo PDF |
 | Render Markdown | `react-markdown` + `remark-gfm` (necesario para tablas) |
 | Exportación | `jspdf` + `dom-to-image-more` (PDF por rasterizado), HTML-Word (`.doc`), Markdown, JSON |
@@ -41,7 +41,21 @@ Toda la generación se hace con **Google Gemini** (modelo seleccionable desde lo
 
 Si no hay ninguna, se lanza error y `App.tsx` muestra un aviso bloqueante en el paso 1.
 
-El **modelo** se elige desde el modal de ajustes y se guarda en `localStorage.GEMINI_MODEL` (`services/modelService.ts`). Si no hay ninguno guardado se usa `DEFAULT_MODEL` (`gemini-3.1-pro-preview`). El modal ofrece una lista sugerida, un botón **"Detectar modelos disponibles"** que consulta `ai.models.list()` con la clave del usuario, y un campo libre para escribir cualquier identificador. El modelo activo se muestra como distintivo en la cabecera y se usa en las cinco llamadas del servicio.
+**Un modelo por tarea.** Las cinco llamadas tienen perfiles de consumo muy distintos, así que cada una usa su propio modelo (`services/modelService.ts`, `MODEL_TASKS`):
+
+| Tarea | Clave | Modelo por defecto | Motivo |
+| --- | --- | --- | --- |
+| Análisis del currículum (paso 1) | `analysis` | `gemini-3.5-flash-lite` | Entrada enorme, salida corta, extracción mecánica |
+| Programación de aula y SdA (paso 5) | `situacion` | `gemini-3.8-flash` | Donde se juega la calidad; si la clave admite un Pro utilizable, conviene cambiarlo |
+| Propuesta pedagógica (paso 5) | `propuesta` | `gemini-3.8-flash` | Documento largo pero formulaico |
+| Desarrollo de actividades (pasos 6-7) | `activities` | `gemini-3.8-flash` | Una llamada por actividad: muchas peticiones |
+| Refinado por chat | `refine` | `gemini-3.8-flash` | Prima la fidelidad sobre la creatividad |
+
+La configuración se guarda como JSON en `localStorage.GEMINI_MODELS`, y **solo se almacenan los valores que difieren del recomendado** (si todos coinciden, la clave se elimina). La clave `GEMINI_MODEL` de la versión anterior se borra al guardar. El modal ofrece, por tarea, la lista sugerida (`CURATED_MODELS`), los modelos detectados con **"Detectar modelos disponibles"** (`ai.models.list()` con la clave del usuario) y un campo libre para cualquier identificador, además de un botón para restablecer los recomendados. En la cabecera se muestra el modelo de la programación de aula.
+
+> Los valores por defecto están elegidos para funcionar **con una clave sin facturación**: `gemini-3.1-pro-preview` no tiene nivel gratuito y devuelve `429` con `limit: 0`. La lista que devuelve `ai.models.list()` varía de una clave a otra, así que **la detección manda sobre cualquier lista sugerida**: tras detectar, el modal separa los modelos disponibles de los que no lo están y avisa si alguna tarea apunta a uno no disponible.
+>
+> Aviso: estar listado en `models.list()` **no garantiza** que el modelo acepte `generateContent` con esa clave. `gemini-2.5-pro`, por ejemplo, sigue apareciendo en la detección pero responde `404` con el texto *"no longer available to new users"* en proyectos creados después de su cierre. La lista es una guía, no un contrato; `parseGeminiError` reconoce ese caso concreto y lo explica, incluyendo el modelo de reemplazo que sugiere Google.
 
 > Nota de seguridad: la clave viaja en el bundle del navegador y las llamadas a Gemini salen desde el cliente. Es aceptable para uso individual del docente con su propia clave, pero no para un despliegue multiusuario.
 
@@ -118,7 +132,7 @@ CRUD sobre `localStorage['educational_docs_history']`: cada `HistoryItem` guarda
 
 Todas las llamadas comparten `SYSTEM_INSTRUCTION` (líneas 16-27), que fija el rol ("experto pedagogo y jefe de departamento con amplia experiencia en normativa educativa (LOMLOE)") y **seis reglas de formato**: no saludar, no introducir, empezar por el encabezado Markdown, respetar la estructura pedida, lenguaje técnico e inclusivo y **escribir solo en el idioma solicitado**.
 
-Todas usan el modelo devuelto por `getSelectedModel()`. Ninguna llamada usa `temperature`, `maxOutputTokens`, `responseSchema` ni configuración de razonamiento explícita, salvo `responseMimeType: "application/json"` en el análisis del PDF.
+Cada una usa el modelo de su tarea (`getTaskModel`), y etiqueta sus excepciones con ese modelo (`tagErrorModel`) para que el mensaje de error diga cuál ha fallado. Ninguna llamada usa `temperature`, `maxOutputTokens`, `responseSchema` ni configuración de razonamiento explícita, salvo `responseMimeType: "application/json"` en el análisis del PDF.
 
 ### 4.1 `analyzePdfStructure` (línea 38)
 
@@ -189,7 +203,7 @@ GeneratedActivity { id, saTitle, activityName, content }
 
 ### Claves de `localStorage`
 
-`GEMINI_API_KEY`, `GEMINI_MODEL`, `TEACHER_NAME`, `DEPARTMENT_NAME`, `educational_docs_history`.
+`GEMINI_API_KEY`, `GEMINI_MODELS` (JSON con el modelo de cada tarea), `TEACHER_NAME`, `DEPARTMENT_NAME`, `educational_docs_history`.
 
 ### Formato de exportación JSON de proyecto
 
